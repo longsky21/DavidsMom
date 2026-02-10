@@ -25,7 +25,7 @@ def get_words(
     return words
 
 @router.post("/", response_model=schemas.WordResponse)
-def create_word(
+async def create_word(
     word_in: schemas.WordCreate, 
     current_user: models.Parent = Depends(deps.get_current_user),
     db: Session = Depends(get_db)
@@ -41,7 +41,7 @@ def create_word(
 
     # If details are missing, try to fetch from external API
     if not word_in.meaning or not word_in.phonetic_us:
-        fetched_info = word_service.fetch_word_info(word_in.word)
+        fetched_info = await word_service.fetch_word_info(word_in.word)
         if fetched_info:
             if not word_in.meaning:
                 word_in.meaning = fetched_info.get("meaning", "")
@@ -55,6 +55,8 @@ def create_word(
                 word_in.audio_uk_url = fetched_info.get("audio_uk_url", "")
             if not word_in.example and fetched_info.get("example"):
                 word_in.example = fetched_info.get("example")
+            if not word_in.image_url:
+                word_in.image_url = fetched_info.get("image_url", "")
 
     db_word = models.Word(
         **word_in.dict(),
@@ -66,6 +68,24 @@ def create_word(
     return db_word
 
 @router.get("/search")
-def search_word_info(word: str):
+async def search_word_info(word: str):
     # Helper endpoint to preview word info before adding
-    return word_service.fetch_word_info(word)
+    return await word_service.fetch_word_info(word)
+
+@router.delete("/{word_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_word(
+    word_id: int,
+    current_user: models.Parent = Depends(deps.get_current_user),
+    db: Session = Depends(get_db)
+):
+    word = db.query(models.Word).filter(
+        models.Word.id == word_id,
+        models.Word.parent_id == current_user.id
+    ).first()
+    
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+        
+    db.delete(word)
+    db.commit()
+    return None

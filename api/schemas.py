@@ -10,6 +10,7 @@ class ParentBase(BaseModel):
 
 class ParentCreate(ParentBase):
     password: str
+    child_nickname: str
 
 class ParentLogin(BaseModel):
     phone: str
@@ -52,6 +53,8 @@ class WordBase(BaseModel):
     category: Optional[str] = None
     difficulty: int = 1
     image_url: Optional[str] = None
+    audio_us_url: Optional[str] = None
+    audio_uk_url: Optional[str] = None
 
 class WordCreate(WordBase):
     pass
@@ -60,8 +63,6 @@ class WordResponse(WordBase):
     id: str
     parent_id: str
     image_source: Optional[str] = None
-    audio_us_url: Optional[str] = None
-    audio_uk_url: Optional[str] = None
     created_at: datetime
 
     class Config:

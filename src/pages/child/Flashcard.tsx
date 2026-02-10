@@ -4,6 +4,7 @@ import { Button, Toast, ProgressBar } from 'antd-mobile';
 import { Volume2, Check, X, ArrowRight, Home } from 'lucide-react';
 import axios from 'axios';
 import confetti from 'canvas-confetti';
+import useStore from '@/store/useStore';
 
 interface Word {
     id: string;
@@ -22,6 +23,7 @@ const Flashcard: React.FC = () => {
   const [step, setStep] = useState(0); // 0: Word only, 1: +Image, 2: +Details
   const [loading, setLoading] = useState(true);
   const [completed, setCompleted] = useState(false);
+  const token = useStore((state: any) => state.token);
 
   useEffect(() => {
     fetchDailyTask();
@@ -29,7 +31,9 @@ const Flashcard: React.FC = () => {
 
   const fetchDailyTask = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/learning/today');
+      const response = await axios.get('/api/learning/today', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setWords(response.data.words);
       setLoading(false);
     } catch (error) {
@@ -46,18 +50,23 @@ const Flashcard: React.FC = () => {
   };
 
   const playAudio = (url: string) => {
-    if(url) {
-        new Audio(url).play();
-    }
+    if(!url) return;
+    const audio = new Audio(url);
+    audio.play().catch(e => {
+        console.error("Audio play error", e);
+        Toast.show('Audio error');
+    });
   };
 
   const handleResult = async (result: 'remembered' | 'forgot') => {
     // Record result
     try {
-        await axios.post('http://localhost:8000/api/learning/record', {
+        await axios.post('/api/learning/record', {
             word_id: words[currentIndex].id,
             result: result,
             time_spent: 5.0 
+        }, {
+            headers: { Authorization: `Bearer ${token}` }
         });
     } catch(e) {
         console.error(e);

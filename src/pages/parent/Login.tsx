@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Form, Input, Button, Toast } from 'antd-mobile';
@@ -11,12 +11,19 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const setToken = useStore((state: any) => state.setToken);
   const setUser = useStore((state: any) => state.setUser);
+  const token = useStore((state: any) => state.token);
+
+  useEffect(() => {
+    if (token) {
+      navigate('/');
+    }
+  }, [token, navigate]);
 
   const onFinish = async (values: any) => {
     setLoading(true);
     try {
       // In real app, use environment variable for API URL
-      const response = await axios.post('http://localhost:8000/api/auth/login', {
+      const response = await axios.post('/api/auth/login', {
         phone: values.phone,
         password: values.password
       });
@@ -29,7 +36,7 @@ const Login: React.FC = () => {
         icon: 'success',
         content: '登录成功',
       });
-      navigate('/parent/dashboard');
+      navigate('/');
     } catch (error) {
       Toast.show({
         icon: 'fail',
@@ -70,7 +77,7 @@ const Login: React.FC = () => {
           </Form.Item>
         </Form>
         <div className="mt-4 text-center">
-            <Button fill='none' onClick={() => navigate('/parent/register')}>
+            <Button fill='none' onClick={() => navigate('/register')}>
               {t('no_account')}
             </Button>
         </div>

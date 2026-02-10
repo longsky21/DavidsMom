@@ -2,37 +2,66 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from 'antd-mobile';
-import { User, Baby } from 'lucide-react';
+import { User, Baby, LogOut, Power } from 'lucide-react';
+import useStore from '@/store/useStore';
 
 const RoleSelection: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const logout = useStore((state: any) => state.logout);
+  const user = useStore((state: any) => state.user);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-100 to-orange-50 p-4">
-      <h1 className="text-4xl font-bold text-blue-600 mb-12">David's Mom</h1>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-100 to-orange-50 p-4 relative">
+      <div className="absolute top-4 right-4">
+          <div 
+            onClick={handleLogout} 
+            className="p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-sm cursor-pointer hover:bg-white transition-all transform hover:scale-105"
+            title="Logout"
+          >
+            <Power size={20} className="text-blue-400" />
+          </div>
+      </div>
+
+      <h1 className="text-4xl font-bold text-blue-600 mb-2">David's Mom</h1>
+      <p className="text-gray-500 mb-10">Welcome, {user?.username || 'Parent'}</p>
       
-      <div className="grid gap-6 w-full max-w-md">
+      <div className="grid gap-6 w-full max-w-sm">
         <div 
           onClick={() => navigate('/child')}
-          className="bg-white p-8 rounded-2xl shadow-lg flex flex-col items-center cursor-pointer transform transition hover:scale-105 active:scale-95"
+          className="bg-white p-6 rounded-3xl shadow-xl flex flex-col items-center cursor-pointer transform transition duration-300 hover:scale-105 active:scale-95 hover:shadow-2xl ring-4 ring-white/50"
         >
-          <div className="bg-orange-100 p-4 rounded-full mb-4">
-            <Baby size={64} className="text-orange-500" />
+          <div className="mb-4 relative">
+            <div className="absolute inset-0 bg-orange-200 rounded-full blur-xl opacity-30"></div>
+            <img 
+                src="/assets/child_avatar.png?v=cool" 
+                alt="Child" 
+                className="w-32 h-32 rounded-full object-cover border-4 border-orange-100 shadow-md relative z-10" 
+            />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800">{t('child_mode')}</h2>
-          <p className="text-gray-500 mt-2">Let's learn English!</p>
+          <h2 className="text-3xl font-bold text-gray-800">{t('child_mode')}</h2>
+          <p className="text-gray-500 font-medium mt-1">Let's learn English!</p>
         </div>
 
         <div 
-          onClick={() => navigate('/parent/login')}
-          className="bg-white p-8 rounded-2xl shadow-lg flex flex-col items-center cursor-pointer transform transition hover:scale-105 active:scale-95"
+          onClick={() => navigate('/parent/dashboard')}
+          className="bg-white p-6 rounded-3xl shadow-xl flex flex-col items-center cursor-pointer transform transition duration-300 hover:scale-105 active:scale-95 hover:shadow-2xl ring-4 ring-white/50"
         >
-          <div className="bg-blue-100 p-4 rounded-full mb-4">
-            <User size={64} className="text-blue-500" />
+          <div className="mb-4 relative">
+             <div className="absolute inset-0 bg-blue-200 rounded-full blur-xl opacity-30"></div>
+            <img 
+                src="/assets/mom_avatar.png" 
+                alt="Parent" 
+                className="w-32 h-32 rounded-full object-cover border-4 border-blue-100 shadow-md relative z-10" 
+            />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800">{t('parent_mode')}</h2>
-          <p className="text-gray-500 mt-2">Manage words & progress</p>
+          <h2 className="text-3xl font-bold text-gray-800">{t('parent_mode')}</h2>
+          <p className="text-gray-500 font-medium mt-1">Manage words & progress</p>
         </div>
       </div>
     </div>

@@ -25,6 +25,15 @@ def register(user: schemas.ParentCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     
+    # Create default child
+    db_child = models.Child(
+        parent_id=db_user.id,
+        nickname=user.child_nickname,
+        age=6
+    )
+    db.add(db_child)
+    db.commit()
+
     access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
         data={"sub": db_user.phone, "user_id": db_user.id}, expires_delta=access_token_expires

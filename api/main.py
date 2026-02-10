@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 from .database import engine, Base
 from .routers import auth, words, learning
 
@@ -7,6 +9,13 @@ from .routers import auth, words, learning
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="David's Mom API")
+
+# Mount static files
+# Point to public/static so backend can also serve them if needed
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "public", "static")
+if not os.path.exists(static_dir):
+    os.makedirs(static_dir)
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # CORS configuration
 origins = [
