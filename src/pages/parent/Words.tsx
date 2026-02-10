@@ -83,9 +83,11 @@ const WordManagement: React.FC = () => {
             color='primary' 
             size='small' 
             onClick={() => setIsModalVisible(true)}
-            icon={<Plus size={16} />}
         >
-          {t('add_word')}
+          <div className="flex items-center gap-1">
+            <Plus size={16} />
+            <span>{t('add_word')}</span>
+          </div>
         </Button>
       </div>
 
