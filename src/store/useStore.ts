@@ -5,7 +5,7 @@ interface UserState {
   token: string | null;
   user: {
     id: string;
-    name: string;
+    username: string;
     phone: string;
   } | null;
   setToken: (token: string) => void;

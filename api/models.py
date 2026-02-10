@@ -13,7 +13,7 @@ class Parent(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     phone = Column(String(20), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    name = Column(String(100), nullable=False)
+    username = Column(String(100), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

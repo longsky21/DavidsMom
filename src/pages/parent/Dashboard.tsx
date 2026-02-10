@@ -33,7 +33,7 @@ const Dashboard: React.FC = () => {
             <span className="text-xl">👋</span>
           </div>
           <div>
-            <h3 className="font-bold text-lg">{user?.name || 'Parent'}</h3>
+            <h3 className="font-bold text-lg">{user?.username || 'Parent'}</h3>
             <p className="text-gray-500 text-sm">Let's manage learning!</p>
           </div>
         </div>

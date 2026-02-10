@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import RoleSelection from '@/pages/RoleSelection';
 import ParentLogin from '@/pages/parent/Login';
+import ParentRegister from '@/pages/parent/Register';
 import ParentDashboard from '@/pages/parent/Dashboard';
 import WordManagement from '@/pages/parent/Words';
 import ChildHome from '@/pages/child/Home';
@@ -15,6 +16,7 @@ function App() {
         <Routes>
           <Route path="/" element={<RoleSelection />} />
           <Route path="/parent/login" element={<ParentLogin />} />
+          <Route path="/parent/register" element={<ParentRegister />} />
           <Route path="/parent/dashboard" element={<ParentDashboard />} />
           <Route path="/parent/words" element={<WordManagement />} />
           <Route path="/child" element={<ChildHome />} />

@@ -6,7 +6,7 @@ import uuid
 # Auth Schemas
 class ParentBase(BaseModel):
     phone: str
-    name: str
+    username: str
 
 class ParentCreate(ParentBase):
     password: str
@@ -19,7 +19,7 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     user_id: str
-    user_name: str
+    username: str
 
 class TokenData(BaseModel):
     phone: Optional[str] = None

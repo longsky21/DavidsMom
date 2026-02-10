@@ -5,7 +5,7 @@ import { Form, Input, Button, Toast } from 'antd-mobile';
 import axios from 'axios';
 import useStore from '@/store/useStore';
 
-const Login: React.FC = () => {
+const Register: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
@@ -13,11 +13,19 @@ const Login: React.FC = () => {
   const setUser = useStore((state: any) => state.setUser);
 
   const onFinish = async (values: any) => {
+    if (values.password !== values.confirm_password) {
+      Toast.show({
+        icon: 'fail',
+        content: t('passwords_not_match'),
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      // In real app, use environment variable for API URL
-      const response = await axios.post('http://localhost:8000/api/auth/login', {
+      const response = await axios.post('http://localhost:8000/api/auth/register', {
         phone: values.phone,
+        username: values.username,
         password: values.password
       });
       
@@ -27,13 +35,14 @@ const Login: React.FC = () => {
       
       Toast.show({
         icon: 'success',
-        content: '登录成功',
+        content: t('register_success'),
       });
       navigate('/parent/dashboard');
-    } catch (error) {
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || 'Registration failed';
       Toast.show({
         icon: 'fail',
-        content: '登录失败，请检查手机号或密码',
+        content: msg,
       });
       console.error(error);
     } finally {
@@ -44,7 +53,7 @@ const Login: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-4 flex flex-col justify-center">
       <div className="bg-white p-6 rounded-xl shadow-md">
-        <h2 className="text-2xl font-bold text-center mb-6">{t('login')}</h2>
+        <h2 className="text-2xl font-bold text-center mb-6">{t('register')}</h2>
         <Form
           layout='horizontal'
           footer={
@@ -57,21 +66,38 @@ const Login: React.FC = () => {
           <Form.Item
             name='phone'
             label={t('phone')}
-            rules={[{ required: true, message: '请输入手机号' }]}
+            rules={[{ required: true, message: t('phone') + ' is required' }]}
           >
-            <Input placeholder='请输入手机号' />
+            <Input placeholder={t('phone')} />
           </Form.Item>
+          
+          <Form.Item
+            name='username'
+            label={t('username')}
+            rules={[{ required: true, message: t('username') + ' is required' }]}
+          >
+            <Input placeholder={t('username')} />
+          </Form.Item>
+
           <Form.Item
             name='password'
             label={t('password')}
-            rules={[{ required: true, message: '请输入密码' }]}
+            rules={[{ required: true, message: t('password') + ' is required' }]}
           >
-            <Input type='password' placeholder='请输入密码' />
+            <Input type='password' placeholder={t('password')} />
+          </Form.Item>
+
+          <Form.Item
+            name='confirm_password'
+            label={t('confirm_password')}
+            rules={[{ required: true, message: t('confirm_password') + ' is required' }]}
+          >
+            <Input type='password' placeholder={t('confirm_password')} />
           </Form.Item>
         </Form>
         <div className="mt-4 text-center">
-            <Button fill='none' onClick={() => navigate('/parent/register')}>
-              {t('no_account')}
+            <Button fill='none' onClick={() => navigate('/parent/login')}>
+                {t('has_account')}
             </Button>
         </div>
       </div>
@@ -79,4 +105,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default Register;

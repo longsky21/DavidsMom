@@ -18,7 +18,7 @@ def register(user: schemas.ParentCreate, db: Session = Depends(get_db)):
     hashed_password = security.get_password_hash(user.password)
     db_user = models.Parent(
         phone=user.phone,
-        name=user.name,
+        username=user.username,
         password_hash=hashed_password
     )
     db.add(db_user)
@@ -33,7 +33,7 @@ def register(user: schemas.ParentCreate, db: Session = Depends(get_db)):
         "access_token": access_token, 
         "token_type": "bearer",
         "user_id": db_user.id,
-        "user_name": db_user.name
+        "username": db_user.username
     }
 
 @router.post("/login", response_model=schemas.Token)
@@ -54,5 +54,5 @@ def login(user: schemas.ParentLogin, db: Session = Depends(get_db)):
         "access_token": access_token, 
         "token_type": "bearer",
         "user_id": db_user.id,
-        "user_name": db_user.name
+        "username": db_user.username
     }
