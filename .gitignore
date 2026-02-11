@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 test_*.py
+package-lock.json
 
 # Editor directories and files
 .vscode/*
@@ -30,10 +31,12 @@ api/__pycache__/
 *$py.class
 .venv
 venv
-.env
 
 # Vercel
 .vercel
 
 # Uploads
 uploads/
+
+# Environment variables
+.env
