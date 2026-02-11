@@ -1,7 +1,5 @@
 import requests
 import os
-import edge_tts
-import asyncio
 import uuid
 import hashlib
 import random
@@ -10,165 +8,149 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Define static audio directory relative to this file
-# api/services/word_service.py -> public/static/audio
-STATIC_AUDIO_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "public", "static", "audio")
-if not os.path.exists(STATIC_AUDIO_DIR):
-    os.makedirs(STATIC_AUDIO_DIR)
+def get_audio_url(word: str, type_id: int = 2) -> str:
+    """
+    Get audio URL from Youdao Dict.
+    type_id: 1 for UK, 2 for US
+    """
+    return f"http://dict.youdao.com/dictvoice?audio={word}&type={type_id}"
 
-async def generate_audio(word: str, voice: str = "en-US-AriaNeural") -> str:
+def fetch_youdao_info(word: str) -> dict:
     """
-    Generate TTS audio using edge-tts and save to static folder.
-    Returns the relative URL.
+    Fetch word info (phonetics, meaning, example) from Youdao Dictionary API (XML/JSON)
     """
-    try:
-        # Sanitize filename
-        safe_word = "".join([c for c in word if c.isalpha() or c.isdigit()]).lower()
-        filename = f"{safe_word}_{voice.split('-')[1]}.mp3"
-        filepath = os.path.join(STATIC_AUDIO_DIR, filename)
-        
-        # Check if exists to avoid regenerating
-        if not os.path.exists(filepath):
-            communicate = edge_tts.Communicate(word, voice)
-            await communicate.save(filepath)
-            
-        return f"/static/audio/{filename}"
-    except Exception as e:
-        print(f"Error generating audio: {e}")
-        return ""
-
-def fetch_baidu_translation(word: str) -> str:
-    """
-    Fetch Chinese meaning from Baidu Translate API.
-    """
-    appid = os.getenv("BAIDU_APP_ID")
-    secret_key = os.getenv("BAIDU_SECRET_KEY")
-    
-    if not appid or not secret_key:
-        print("Baidu API credentials missing")
-        return ""
-
-    endpoint = "http://api.fanyi.baidu.com/api/trans/vip/translate"
-    salt = str(random.randint(32768, 65536))
-    sign_str = appid + word + salt + secret_key
-    sign = hashlib.md5(sign_str.encode("utf-8")).hexdigest()
-    
-    params = {
-        "q": word,
-        "from": "en",
-        "to": "zh",
-        "appid": appid,
-        "salt": salt,
-        "sign": sign
-    }
-    
-    try:
-        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-        response = requests.post(endpoint, data=params, headers=headers, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            if "error_code" in data:
-                print(f"Baidu API Error: {data['error_code']} - {data.get('error_msg')}")
-                return ""
-            
-            if "trans_result" in data and len(data["trans_result"]) > 0:
-                return data["trans_result"][0]["dst"]
-    except Exception as e:
-        print(f"Error fetching Baidu translation: {e}")
-    
-    return ""
-
-def fetch_youdao_meaning(word: str) -> str:
-    """
-    Fallback: Fetch Chinese meaning from Youdao Suggest API.
-    """
-    try:
-        url = f"http://dict.youdao.com/suggest?num=1&doctype=json&q={word}"
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            if "entries" in data and len(data["entries"]) > 0:
-                entry = data["entries"][0]
-                return entry.get("explain", "")
-    except Exception as e:
-        print(f"Error fetching Youdao translation: {e}")
-    return ""
-
-def get_pollinations_image(word: str) -> str:
-    """
-    Get image URL from Pollinations.ai
-    """
-    prompt = f"cartoon illustration of {word}, cute, simple, for children learning english"
-    return f"https://image.pollinations.ai/prompt/{prompt}?width=240&height=240&nologo=true"
-
-async def fetch_word_info(word: str):
     info = {
         "word": word,
         "phonetic_us": "",
         "phonetic_uk": "",
         "meaning": "",
         "example": "",
-        "audio_us_url": "",
-        "audio_uk_url": "",
-        "image_url": ""
+        "audio_us_url": get_audio_url(word, 2),
+        "audio_uk_url": get_audio_url(word, 1)
     }
     
-    # 1. Fetch from DictionaryAPI.dev (for Phonetics & Example)
     try:
-        response = requests.get(f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}", timeout=5)
+        # Use Youdao JSON API (Mobile version often provides JSON)
+        # Or standard XML API: http://dict.youdao.com/suggest?q={word}&num=1&doctype=json
+        # Better JSON API: http://dict.youdao.com/jsonapi?q={word}
+        
+        url = f"http://dict.youdao.com/jsonapi?q={word.lower()}"
+        response = requests.get(url, timeout=5)
+        
         if response.status_code == 200:
-            data = response.json()[0]
+            data = response.json()
             
-            # Phonetics
-            for phon in data.get("phonetics", []):
-                audio = phon.get("audio", "")
-                text = phon.get("text", "")
+            # Check for return-phrase to get correct casing (e.g. "january" -> "January")
+            # If "simple" or "ec" not found, word likely doesn't exist
+            if "simple" in data and "word" in data["simple"]:
+                simple = data["simple"]["word"][0]
+                if "return-phrase" in simple:
+                    info["word"] = simple["return-phrase"] # Use canonical form
                 
-                if "us" in audio:
-                    if not info["phonetic_us"]:
-                        info["phonetic_us"] = text
-                    if not info["audio_us_url"]:
-                        info["audio_us_url"] = audio
-                
-                if "uk" in audio:
-                    if not info["phonetic_uk"]:
-                        info["phonetic_uk"] = text
-                    if not info["audio_uk_url"]:
-                        info["audio_uk_url"] = audio
+                if "ukphone" in simple:
+                    info["phonetic_uk"] = f"/{simple['ukphone']}/"
+                if "usphone" in simple:
+                    info["phonetic_us"] = f"/{simple['usphone']}/"
+            
+            elif "ec" in data and "word" in data["ec"]:
+                # Fallback if simple dict not present but EC exists
+                ec = data["ec"]["word"][0]
+                if "return-phrase" in ec:
+                    info["word"] = ec["return-phrase"]
+            else:
+                # No dictionary entry found
+                return None
 
-                if not info["phonetic_us"] and text:
-                    info["phonetic_us"] = text
+            if "ec" in data and "word" in data["ec"]:
+                ec = data["ec"]["word"][0]
+                # Meaning
+                if "trs" in ec:
+                    meanings = []
+                    for tr in ec["trs"]:
+                         if "tr" in tr and len(tr["tr"]) > 0 and "l" in tr["tr"][0]:
+                             meanings.append(tr["tr"][0]["l"]["i"][0])
+                    info["meaning"] = "; ".join(meanings)
+                
+                # Phonetics fallback
+                if not info["phonetic_uk"] and "ukphone" in ec:
+                    info["phonetic_uk"] = f"/{ec['ukphone']}/"
+                if not info["phonetic_us"] and "usphone" in ec:
+                    info["phonetic_us"] = f"/{ec['usphone']}/"
+
+            # Example sentences (blng_sents_part)
+            if "blng_sents_part" in data and "sentence-pair" in data["blng_sents_part"]:
+                pairs = data["blng_sents_part"]["sentence-pair"]
+                if len(pairs) > 0:
+                    info["example"] = pairs[0]["sentence"]
+                    # pairs[0]["sentence-translation"] is the CN translation
             
-            # Example
-            if data.get("meanings"):
-                first = data["meanings"][0]
-                if first.get("definitions"):
-                    info["example"] = first["definitions"][0].get("example", "")
+            # Image (pic_dict)
+            if "pic_dict" in data and "pic" in data["pic_dict"]:
+                pics = data["pic_dict"]["pic"]
+                if len(pics) > 0 and "image" in pics[0]:
+                    info["image_url"] = pics[0]["image"]
+
     except Exception as e:
-        print(f"DictionaryAPI error: {e}")
-
-    # 2. Fetch Chinese Meaning (Override English meaning or fill if empty)
-    # Use Baidu Translate first, fallback to Youdao
-    cn_meaning = fetch_baidu_translation(word)
-    if not cn_meaning:
-        cn_meaning = fetch_youdao_meaning(word)
+        print(f"Error fetching Youdao info: {e}")
         
-    if cn_meaning:
-        info["meaning"] = cn_meaning
-    elif not info["meaning"]:
-        # Fallback to DictionaryAPI meaning if no Chinese
-        if 'data' in locals() and data.get("meanings"):
-             info["meaning"] = data["meanings"][0]["definitions"][0].get("definition", "")
+    return info
 
-    # 3. Generate Audio (Local) using edge-tts
-    # Only if DictionaryAPI didn't provide it
-    if not info["audio_us_url"]:
-        info["audio_us_url"] = await generate_audio(word, "en-US-AriaNeural")
-        
-    if not info["audio_uk_url"]:
-        info["audio_uk_url"] = await generate_audio(word, "en-GB-SoniaNeural")
+def get_word_suggestions(prefix: str):
+    """
+    Get word suggestions from Youdao Suggest API
+    """
+    try:
+        url = f"http://dict.youdao.com/suggest?q={prefix}&num=5&doctype=json"
+        response = requests.get(url, timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            if "data" in data and "entries" in data["data"]:
+                return [entry["entry"] for entry in data["data"]["entries"]]
+    except Exception as e:
+        print(f"Error fetching suggestions: {e}")
+    return []
+
+async def fetch_word_info(word: str):
+    # 1. Fetch all text info from Youdao
+    info = fetch_youdao_info(word)
     
-    # 4. Image
-    info["image_url"] = get_pollinations_image(word)
+    # 2. Image Generation (Fallback to DashScope if Youdao has no image)
+    if not info.get("image_url"):
+        img_url = get_dashscope_image(word)
+        if img_url:
+            info["image_url"] = img_url
     
     return info
+
+def get_dashscope_image(word: str) -> str:
+    """
+    Generate image using DashScope (Wanx)
+    """
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    if not api_key:
+        print("DASHSCOPE_API_KEY not found")
+        return ""
+        
+    import dashscope
+    from dashscope import ImageSynthesis
+    
+    dashscope.api_key = api_key
+    prompt = f"cartoon illustration of {word}, cute, simple, for children learning english"
+    
+    try:
+        # Wanx supports 1024*1024, 720*1280, 1280*720
+        # It does not support 300x300, so we keep 1024x1024 which is the standard square size
+        rsp = ImageSynthesis.call(model=ImageSynthesis.Models.wanx_v1,
+                                  prompt=prompt,
+                                  n=1,
+                                  size='1024*1024')
+        
+        if rsp.status_code == 200:
+            if rsp.output and rsp.output.results:
+                return rsp.output.results[0].url
+        else:
+            print(f"DashScope API error: {rsp.code} - {rsp.message}")
+    except Exception as e:
+        print(f"Error generating image with DashScope: {e}")
+        
+    return ""

@@ -15,7 +15,14 @@ app = FastAPI(title="David's Mom API")
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "public", "static")
 if not os.path.exists(static_dir):
     os.makedirs(static_dir)
+
+# Ensure uploads directory exists
+uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+if not os.path.exists(uploads_dir):
+    os.makedirs(uploads_dir)
+
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # CORS configuration
 origins = [

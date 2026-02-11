@@ -45,7 +45,12 @@ const Flashcard: React.FC = () => {
 
   const handleCardClick = () => {
     if (step < 2) {
-      setStep(step + 1);
+      const nextStep = step + 1;
+      setStep(nextStep);
+      // Auto play audio on step 2 (Details)
+      if (nextStep === 2) {
+          playAudio(words[currentIndex].audio_us_url);
+      }
     }
   };
 
@@ -106,58 +111,61 @@ const Flashcard: React.FC = () => {
   const progress = ((currentIndex) / words.length) * 100;
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <div className="p-4">
+    <div className="h-screen bg-gray-100 flex flex-col overflow-hidden">
+      <div className="p-4 flex-shrink-0">
         <ProgressBar percent={progress} style={{ '--track-width': '8px' }} />
         <div className="text-center text-gray-400 text-sm mt-2">{currentIndex + 1} / {words.length}</div>
       </div>
 
-      <div className="flex-1 flex flex-col justify-center p-4">
+      <div className="flex-1 flex flex-col justify-center p-4 overflow-hidden">
         <div 
-            className="bg-white rounded-3xl shadow-lg p-8 min-h-[400px] flex flex-col items-center justify-center cursor-pointer transition-all duration-300"
+            className="bg-white rounded-3xl shadow-lg p-6 w-full max-w-md mx-auto flex flex-col items-center justify-center cursor-pointer transition-all duration-300 relative h-full max-h-[60vh]"
             onClick={handleCardClick}
         >
-            <h1 className="text-5xl font-bold text-gray-800 mb-4">{currentWord.word}</h1>
-            
-            {/* Step 1: Image Hint */}
-            <div className={`transition-opacity duration-500 ${step >= 1 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-                {currentWord.image_url ? (
-                    <img src={currentWord.image_url} alt={currentWord.word} className="w-48 h-48 object-cover rounded-xl mb-4" />
-                ) : (
-                    <div className="w-48 h-48 bg-gray-100 rounded-xl mb-4 flex items-center justify-center text-gray-400">
-                        No Image
+            <div className="flex-1 flex flex-col items-center justify-center w-full overflow-y-auto">
+                <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4 flex-shrink-0">{currentWord.word}</h1>
+                
+                {/* Step 1: Image Hint */}
+                <div className={`transition-opacity duration-500 flex-shrink-0 ${step >= 1 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+                    {currentWord.image_url ? (
+                        <img src={currentWord.image_url} alt={currentWord.word} className="w-40 h-40 object-cover rounded-xl mb-4 shadow-sm" />
+                    ) : (
+                        <div className="w-40 h-40 bg-gray-100 rounded-xl mb-4 flex items-center justify-center text-gray-400">
+                            No Image
+                        </div>
+                    )}
+                </div>
+
+                {/* Step 2: Details */}
+                <div className={`transition-opacity duration-500 text-center w-full ${step >= 2 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+                    <div className="flex items-center justify-center gap-2 mb-2 flex-shrink-0">
+                        <span className="text-xl text-gray-500">/{currentWord.phonetic_us}/</span>
+                        <Button 
+                            fill='none' 
+                            onClick={(e) => { e.stopPropagation(); playAudio(currentWord.audio_us_url); }}
+                        >
+                            <Volume2 className="text-blue-500" />
+                        </Button>
                     </div>
+                    <h2 className="text-2xl font-bold text-blue-600 mb-2 line-clamp-3 overflow-hidden text-ellipsis px-2">{currentWord.meaning}</h2>
+                    <p className="text-gray-500 italic px-2 text-sm">"{currentWord.example}"</p>
+                </div>
+                
+                {step < 2 && (
+                    <div className="mt-8 text-gray-300 text-sm animate-pulse flex-shrink-0">Tap to reveal</div>
                 )}
             </div>
-
-            {/* Step 2: Details */}
-            <div className={`transition-opacity duration-500 text-center ${step >= 2 ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
-                <div className="flex items-center justify-center gap-2 mb-2">
-                    <span className="text-xl text-gray-500">/{currentWord.phonetic_us}/</span>
-                    <Button 
-                        fill='none' 
-                        onClick={(e) => { e.stopPropagation(); playAudio(currentWord.audio_us_url); }}
-                    >
-                        <Volume2 className="text-blue-500" />
-                    </Button>
-                </div>
-                <h2 className="text-2xl font-bold text-blue-600 mb-2">{currentWord.meaning}</h2>
-                <p className="text-gray-500 italic">"{currentWord.example}"</p>
-            </div>
-            
-            {step < 2 && (
-                <div className="mt-8 text-gray-300 text-sm animate-pulse">Tap to reveal</div>
-            )}
         </div>
       </div>
 
-      {step >= 2 && (
-        <div className="p-6 grid grid-cols-2 gap-4">
+      <div className="p-6 grid grid-cols-2 gap-4 bg-gray-100 flex-shrink-0 safe-area-bottom">
+        {step >= 2 ? (
+            <>
             <Button 
                 block 
                 color='warning' 
                 size='large' 
-                className="h-14 text-lg"
+                className="h-14 text-lg shadow-md"
                 onClick={() => handleResult('forgot')}
             >
                 <div className="flex flex-col items-center">
@@ -169,7 +177,7 @@ const Flashcard: React.FC = () => {
                 block 
                 color='success' 
                 size='large' 
-                className="h-14 text-lg"
+                className="h-14 text-lg shadow-md"
                 onClick={() => handleResult('remembered')}
             >
                 <div className="flex flex-col items-center">
@@ -177,8 +185,11 @@ const Flashcard: React.FC = () => {
                     <span className="text-xs">Remembered</span>
                 </div>
             </Button>
-        </div>
-      )}
+            </>
+        ) : (
+            <div className="col-span-2 h-14"></div> // Placeholder to keep layout stable
+        )}
+      </div>
     </div>
   );
 };

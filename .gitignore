@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+test_*.py
 
 # Editor directories and files
 .vscode/*
@@ -24,7 +25,7 @@ dist-ssr
 *.sw?
 
 # Python
-__pycache__/
+api/__pycache__/
 *.py[cod]
 *$py.class
 .venv
@@ -33,3 +34,6 @@ venv
 
 # Vercel
 .vercel
+
+# Uploads
+uploads/

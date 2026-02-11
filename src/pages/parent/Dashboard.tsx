@@ -14,20 +14,28 @@ const Dashboard: React.FC = () => {
     <div className="min-h-screen bg-gray-50">
       <NavBar 
         onBack={() => navigate('/')}
-        className="bg-white border-b"
+        className="bg-white border-b sticky top-0 z-10 shadow-sm"
+        style={{ '--height': '56px' }}
       >
-        {t('dashboard')}
+        <span className="text-xl font-bold text-gray-800">{t('dashboard')}</span>
       </NavBar>
 
       <div className="p-4">
-        <Card className="mb-4">
+        <Card 
+          className="mb-4 active:bg-gray-50 transition-colors cursor-pointer"
+          onClick={() => navigate('/parent/profile')}
+        >
         <div className="flex items-center">
-          <div className="bg-blue-100 rounded-full p-2 mr-4">
-            <span className="text-xl">👋</span>
+          <div className="bg-blue-100 rounded-full w-14 h-14 flex items-center justify-center mr-4 border-2 border-white shadow-sm overflow-hidden">
+            {user?.avatar_url ? (
+                <img src={user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+                <span className="text-2xl">👋</span>
+            )}
           </div>
           <div>
-            <h3 className="font-bold text-lg">{user?.username || 'Parent'}</h3>
-            <p className="text-gray-500 text-sm">Let's manage learning!</p>
+            <h3 className="font-bold text-lg text-gray-800">{user?.username || 'Parent'}</h3>
+            <p className="text-blue-500 text-xs font-medium">Let's grow up together with our children!</p>
           </div>
         </div>
       </Card>
@@ -42,16 +50,16 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div 
-          onClick={() => {}} 
-          className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center h-32 active:bg-gray-50 opacity-50"
+          onClick={() => navigate('/parent/report')} 
+          className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center h-32 active:bg-gray-50"
         >
           <BarChart2 className="text-green-500 mb-2" size={32} />
           <span className="font-medium text-gray-700">{t('learning_report')}</span>
         </div>
 
         <div 
-          onClick={() => {}} 
-          className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center h-32 active:bg-gray-50 opacity-50"
+          onClick={() => navigate('/parent/settings')} 
+          className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center h-32 active:bg-gray-50"
         >
           <Settings className="text-orange-500 mb-2" size={32} />
           <span className="font-medium text-gray-700">{t('learning_settings')}</span>

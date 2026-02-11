@@ -3,16 +3,21 @@ import RoleSelection from '@/pages/RoleSelection';
 import ParentLogin from '@/pages/parent/Login';
 import ParentRegister from '@/pages/parent/Register';
 import ParentDashboard from '@/pages/parent/Dashboard';
+import ParentSettings from '@/pages/parent/Settings';
+import ParentReport from '@/pages/parent/Report';
+import ParentProfile from '@/pages/parent/Profile';
 import WordManagement from '@/pages/parent/Words';
 import ChildHome from '@/pages/child/Home';
 import Flashcard from '@/pages/child/Flashcard';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import AxiosInterceptor from '@/components/AxiosInterceptor';
 import './i18n';
 import './index.css';
 
 function App() {
   return (
     <Router>
+      <AxiosInterceptor />
       <div className="min-h-screen bg-gray-50">
         <Routes>
           {/* Public Routes */}
@@ -34,6 +39,21 @@ function App() {
           <Route path="/parent/words" element={
             <ProtectedRoute>
               <WordManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/parent/settings" element={
+            <ProtectedRoute>
+              <ParentSettings />
+            </ProtectedRoute>
+          } />
+          <Route path="/parent/report" element={
+            <ProtectedRoute>
+              <ParentReport />
+            </ProtectedRoute>
+          } />
+          <Route path="/parent/profile" element={
+            <ProtectedRoute>
+              <ParentProfile />
             </ProtectedRoute>
           } />
           
