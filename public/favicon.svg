@@ -1,4 +1,35 @@
-<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="32" height="32" fill="#0A0B0D"/>
-<path d="M26.6677 23.7149H8.38057V20.6496H5.33301V8.38159H26.6677V23.7149ZM8.38057 20.6496H23.6201V11.4482H8.38057V20.6496ZM16.0011 16.0021L13.8461 18.1705L11.6913 16.0021L13.8461 13.8337L16.0011 16.0021ZM22.0963 16.0008L19.9414 18.1691L17.7865 16.0008L19.9414 13.8324L22.0963 16.0008Z" fill="#32F08C"/>
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="32" cy="32" r="30" fill="#E0E0E0"/>
+  
+  <!-- Back Hair (Brown, Wavy) -->
+  <path d="M14 28C12 35 10 50 16 58C20 62 44 62 48 58C54 50 52 35 50 28" fill="#8B5A2B" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+  
+  <!-- Body/Clothes (Grey) -->
+  <path d="M16 58C16 58 20 62 32 62C44 62 48 58 48 58V54H16V58Z" fill="#78909C" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+  
+  <!-- Face (Light Skin) -->
+  <path d="M18 30C18 16 46 16 46 30V40C46 52 18 52 18 40V30Z" fill="#FFE0BD" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+  
+  <!-- Ears -->
+  <circle cx="16" cy="36" r="3" fill="#FFE0BD" stroke="#000000" stroke-width="2"/>
+  <circle cx="48" cy="36" r="3" fill="#FFE0BD" stroke="#000000" stroke-width="2"/>
+  
+  <!-- Front Hair/Bangs (Brown) -->
+  <path d="M32 18C24 18 18 24 18 34C18 34 22 24 32 24C42 24 46 34 46 34C46 24 40 18 32 18Z" fill="#8B5A2B" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+  
+  <!-- Eyes (Black dots) -->
+  <circle cx="26" cy="36" r="2.5" fill="black"/>
+  <circle cx="38" cy="36" r="2.5" fill="black"/>
+  
+  <!-- Blush (Pink) -->
+  <circle cx="22" cy="40" r="3" fill="#FF8A80" fill-opacity="0.6"/>
+  <circle cx="42" cy="40" r="3" fill="#FF8A80" fill-opacity="0.6"/>
+  
+  <!-- Mouth (Smile) -->
+  <path d="M29 44Q32 47 35 44" stroke="black" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Hair Texture Lines -->
+  <path d="M16 34C14 40 14 50 18 56" stroke="#5D4037" stroke-width="1" fill="none"/>
+  <path d="M48 34C50 40 50 50 46 56" stroke="#5D4037" stroke-width="1" fill="none"/>
 </svg>
