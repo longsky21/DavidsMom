@@ -34,6 +34,3 @@ venv
 
 # Vercel
 .vercel
-
-# Uploads
-uploads/
