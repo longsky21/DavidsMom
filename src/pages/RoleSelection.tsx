@@ -1,19 +1,41 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Button } from 'antd-mobile';
+import { Toast } from 'antd-mobile';
 import { User, Baby, LogOut, Power } from 'lucide-react';
 import useStore from '@/store/useStore';
+import axios from 'axios';
 
 const RoleSelection: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const logout = useStore((state: any) => state.logout);
+  const token = useStore((state: any) => state.token);
+  const setChildToken = useStore((state: any) => state.setChildToken);
   const user = useStore((state: any) => state.user);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const enterChildMode = async () => {
+    try {
+      const { data } = await axios.post(
+        '/api/auth/child-token',
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setChildToken(data.access_token);
+      navigate('/child');
+    } catch (e) {
+      Toast.show({ content: '进入儿童模式失败，请重试', icon: 'fail' });
+    }
+  };
+
+  const enterParentMode = () => {
+    setChildToken(null);
+    navigate('/parent/dashboard');
   };
 
   return (
@@ -33,7 +55,7 @@ const RoleSelection: React.FC = () => {
       
       <div className="grid gap-6 w-full max-w-sm">
         <div 
-          onClick={() => navigate('/child')}
+          onClick={enterChildMode}
           className="bg-white p-6 rounded-3xl shadow-xl flex flex-col items-center cursor-pointer transform transition duration-300 hover:scale-105 active:scale-95 hover:shadow-2xl ring-4 ring-white/50"
         >
           <div className="mb-4 relative">
@@ -49,7 +71,7 @@ const RoleSelection: React.FC = () => {
         </div>
 
         <div 
-          onClick={() => navigate('/parent/dashboard')}
+          onClick={enterParentMode}
           className="bg-white p-6 rounded-3xl shadow-xl flex flex-col items-center cursor-pointer transform transition duration-300 hover:scale-105 active:scale-95 hover:shadow-2xl ring-4 ring-white/50"
         >
           <div className="mb-4 relative">

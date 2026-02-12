@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button, Card, NavBar } from 'antd-mobile';
-import { BookOpen, Settings, BarChart2 } from 'lucide-react';
+import { BookOpen, Settings, BarChart2, Video } from 'lucide-react';
 import useStore from '@/store/useStore';
 
 const Dashboard: React.FC = () => {
@@ -63,6 +63,14 @@ const Dashboard: React.FC = () => {
         >
           <Settings className="text-orange-500 mb-2" size={32} />
           <span className="font-medium text-gray-700">{t('learning_settings')}</span>
+        </div>
+
+        <div
+          onClick={() => navigate('/parent/media')}
+          className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center h-32 active:bg-gray-50"
+        >
+          <Video className="text-purple-500 mb-2" size={32} />
+          <span className="font-medium text-gray-700">视频/听力</span>
         </div>
       </div>
       </div>

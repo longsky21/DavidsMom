@@ -45,6 +45,11 @@ class Token(BaseModel):
     username: str
     avatar_url: Optional[str] = None
 
+class ChildToken(BaseModel):
+    access_token: str
+    token_type: str
+    child_id: str
+
 class TokenData(BaseModel):
     phone: Optional[str] = None
 
@@ -54,6 +59,11 @@ class LearningSettings(BaseModel):
     reminder_time: str = "19:00"
     difficulty_level: int = 1
     auto_adjust_difficulty: bool = True
+    daily_video_minutes: int = 10
+    daily_audio_minutes: int = 10
+    daily_video_items: int = 1
+    daily_audio_items: int = 1
+    auto_upgrade_media_difficulty: bool = True
 
 class ChildBase(BaseModel):
     nickname: str
@@ -141,3 +151,93 @@ class LearningDayDetail(BaseModel):
     date: date
     summary: LearningHistoryItem
     records: List[LearningDetailItem]
+
+class MediaResourceResponse(BaseModel):
+    id: str
+    directory: Optional[str] = None
+    filename: str
+    media_type: str
+    size_mb: Optional[float] = None
+    duration_seconds: Optional[int] = None
+    url: str
+    source_channel: str
+    difficulty_level: int
+    location_type: Optional[str] = None
+    pair_key: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class MediaPlanItemResponse(BaseModel):
+    id: str
+    child_id: str
+    module: str
+    is_enabled: bool
+    is_deleted: bool
+    order_index: int
+    added_at: datetime
+    updated_at: datetime
+    resource: MediaResourceResponse
+
+    class Config:
+        from_attributes = True
+
+class MediaPlanAddRequest(BaseModel):
+    resource_id: str
+    module: str
+    sync_pair: bool = False
+
+class MediaPlanUpdateRequest(BaseModel):
+    is_enabled: Optional[bool] = None
+    is_deleted: Optional[bool] = None
+    order_index: Optional[int] = None
+
+class MediaLearningSessionStartRequest(BaseModel):
+    resource_id: str
+    module: str
+
+class MediaLearningSessionFinishRequest(BaseModel):
+    duration_seconds: int
+    completion_percent: float
+    completed_count: int = 1
+
+class MediaLearningSessionResponse(BaseModel):
+    id: str
+    child_id: str
+    module: str
+    resource_id: str
+    started_at: datetime
+    ended_at: Optional[datetime] = None
+    duration_seconds: int
+    completion_percent: float
+    completed_count: int
+    difficulty_level_at_time: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class MediaReportTopItem(BaseModel):
+    resource_id: str
+    title: str
+    total_minutes: float
+    completed_count: int
+
+class MediaReportSummary(BaseModel):
+    period: str
+    module: str
+    total_minutes: float
+    total_completed_count: int
+    average_completion_percent: float
+    top_items: List[MediaReportTopItem]
+    difficulty_level_start: int
+    difficulty_level_end: int
+
+class MediaReportDayItem(BaseModel):
+    date: date
+    total_minutes: float
+    total_completed_count: int
+    average_completion_percent: float

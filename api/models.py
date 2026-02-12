@@ -38,6 +38,9 @@ class Child(Base):
     parent = relationship("Parent", back_populates="children")
     learning_records = relationship("LearningRecord", back_populates="child", cascade="all, delete-orphan")
     learning_sessions = relationship("LearningSession", back_populates="child", cascade="all, delete-orphan")
+    media_plan_items = relationship("ChildMediaPlanItem", back_populates="child", cascade="all, delete-orphan")
+    media_learning_sessions = relationship("MediaLearningSession", back_populates="child", cascade="all, delete-orphan")
+    media_progress = relationship("ChildMediaProgress", back_populates="child", cascade="all, delete-orphan")
 
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4', 'mysql_collate': 'utf8mb4_unicode_ci'}
 
@@ -109,5 +112,81 @@ class LearningRecord(Base):
     child = relationship("Child", back_populates="learning_records")
     word = relationship("Word", back_populates="learning_records")
     session = relationship("LearningSession", back_populates="learning_records")
+
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4', 'mysql_collate': 'utf8mb4_unicode_ci'}
+
+class MediaResource(Base):
+    __tablename__ = "media_resources"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    directory = Column(String(255), index=True, nullable=True)
+    filename = Column(String(255), nullable=False)
+    media_type = Column(String(20), index=True, nullable=False)  # video | audio
+    size_mb = Column(Float, nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
+    url = Column(String(1000), nullable=False)
+    source_channel = Column(String(100), index=True, nullable=False, default="diegodad.com")
+    difficulty_level = Column(Integer, index=True, nullable=False, default=1)
+    location_type = Column(String(20), nullable=True)  # remote | local
+    pair_key = Column(String(255), index=True, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    plan_items = relationship("ChildMediaPlanItem", back_populates="resource", cascade="all, delete-orphan")
+    learning_sessions = relationship("MediaLearningSession", back_populates="resource", cascade="all, delete-orphan")
+
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4', 'mysql_collate': 'utf8mb4_unicode_ci'}
+
+class ChildMediaPlanItem(Base):
+    __tablename__ = "child_media_plan_items"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    child_id = Column(String(36), ForeignKey("children.id"), nullable=False, index=True)
+    resource_id = Column(String(36), ForeignKey("media_resources.id"), nullable=False, index=True)
+    module = Column(String(20), nullable=False, index=True)  # video | audio
+    is_enabled = Column(Boolean, nullable=False, default=True)
+    is_deleted = Column(Boolean, nullable=False, default=False)
+    order_index = Column(Integer, nullable=False, default=0)
+    added_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    child = relationship("Child", back_populates="media_plan_items")
+    resource = relationship("MediaResource", back_populates="plan_items")
+
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4', 'mysql_collate': 'utf8mb4_unicode_ci'}
+
+class MediaLearningSession(Base):
+    __tablename__ = "media_learning_sessions"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    child_id = Column(String(36), ForeignKey("children.id"), nullable=False, index=True)
+    module = Column(String(20), nullable=False, index=True)  # video | audio
+    resource_id = Column(String(36), ForeignKey("media_resources.id"), nullable=False, index=True)
+    started_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    ended_at = Column(DateTime(timezone=True), nullable=True)
+    duration_seconds = Column(Integer, nullable=False, default=0)
+    completion_percent = Column(Float, nullable=False, default=0)
+    completed_count = Column(Integer, nullable=False, default=0)
+    difficulty_level_at_time = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    child = relationship("Child", back_populates="media_learning_sessions")
+    resource = relationship("MediaResource", back_populates="learning_sessions")
+
+    __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4', 'mysql_collate': 'utf8mb4_unicode_ci'}
+
+class ChildMediaProgress(Base):
+    __tablename__ = "child_media_progress"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    child_id = Column(String(36), ForeignKey("children.id"), nullable=False, index=True)
+    module = Column(String(20), nullable=False, index=True)  # video | audio
+    current_difficulty_level = Column(Integer, nullable=False, default=1)
+    stats = Column(JSON, nullable=False, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    child = relationship("Child", back_populates="media_progress")
 
     __table_args__ = {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4', 'mysql_collate': 'utf8mb4_unicode_ci'}

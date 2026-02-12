@@ -81,6 +81,42 @@ const Settings: React.FC = () => {
                 >
                     <Stepper min={5} max={50} />
                 </Form.Item>
+
+                <Form.Item
+                    name="daily_video_minutes"
+                    label="每日视频时长"
+                    extra="分钟"
+                    rules={[{ required: true }]}
+                >
+                    <Stepper min={0} max={120} />
+                </Form.Item>
+
+                <Form.Item
+                    name="daily_video_items"
+                    label="每日视频个数"
+                    extra="个"
+                    rules={[{ required: true }]}
+                >
+                    <Stepper min={0} max={10} />
+                </Form.Item>
+
+                <Form.Item
+                    name="daily_audio_minutes"
+                    label="每日听力时长"
+                    extra="分钟"
+                    rules={[{ required: true }]}
+                >
+                    <Stepper min={0} max={120} />
+                </Form.Item>
+
+                <Form.Item
+                    name="daily_audio_items"
+                    label="每日听力个数"
+                    extra="个"
+                    rules={[{ required: true }]}
+                >
+                    <Stepper min={0} max={10} />
+                </Form.Item>
                 
                 <Form.Item 
                     name="reminder_time" 
@@ -98,6 +134,15 @@ const Settings: React.FC = () => {
                     help="根据孩子年龄自动调整单词难度"
                 >
                     <Switch onChange={checked => setAutoDifficulty(checked)} />
+                </Form.Item>
+
+                <Form.Item
+                    name="auto_upgrade_media_difficulty"
+                    label="视频/听力自动升级"
+                    childElementPosition='right'
+                    help="根据完成情况自动升级难度（1-4）"
+                >
+                    <Switch />
                 </Form.Item>
 
                 {!autoDifficulty && (

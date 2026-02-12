@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from 'antd-mobile';
-import { Play, Star, Home } from 'lucide-react';
+import { Play, Star, Home, Video, Headphones } from 'lucide-react';
 
 const ChildHome: React.FC = () => {
   const navigate = useNavigate();
@@ -20,19 +20,49 @@ const ChildHome: React.FC = () => {
         <h1 className="text-3xl font-bold text-blue-600 mb-2">Ready to Learn?</h1>
         <p className="text-gray-500 mb-8">You have 5 new words today!</p>
 
-        <Button 
-            block 
-            color='primary' 
-            size='large' 
-            shape='rounded'
-            className="h-16 text-xl font-bold shadow-blue-200 shadow-lg"
-            onClick={() => navigate('/child/flashcard')}
-        >
-            <div className="flex items-center justify-center gap-2">
-                <Play fill="currentColor" />
-                Start
-            </div>
-        </Button>
+        <div className="space-y-4">
+            <Button 
+                block 
+                color='primary' 
+                size='large' 
+                shape='rounded'
+                className="h-16 text-xl font-bold shadow-blue-200 shadow-lg"
+                onClick={() => navigate('/child/flashcard')}
+            >
+                <div className="flex items-center justify-center gap-2">
+                    <Play fill="currentColor" />
+                    Start Learning
+                </div>
+            </Button>
+
+            <Button 
+                block 
+                color='success' 
+                size='large' 
+                shape='rounded'
+                className="h-16 text-xl font-bold shadow-green-200 shadow-lg"
+                onClick={() => navigate('/child/videos')}
+            >
+                <div className="flex items-center justify-center gap-2">
+                    <Video />
+                    Fun Videos
+                </div>
+            </Button>
+
+            <Button
+                block
+                color='warning'
+                size='large'
+                shape='rounded'
+                className="h-16 text-xl font-bold shadow-orange-200 shadow-lg"
+                onClick={() => navigate('/child/listening')}
+            >
+                <div className="flex items-center justify-center gap-2">
+                    <Headphones />
+                    Listen Practice
+                </div>
+            </Button>
+        </div>
       </div>
 
       {/* Cartoon Back Button */}

@@ -69,7 +69,7 @@ def register(user: schemas.ParentCreate, db: Session = Depends(get_db)):
 
     access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
-        data={"sub": db_user.phone, "user_id": db_user.id}, expires_delta=access_token_expires
+        data={"sub": db_user.phone, "user_id": db_user.id, "role": "parent"}, expires_delta=access_token_expires
     )
     return {
         "access_token": access_token, 
@@ -112,7 +112,7 @@ def update_profile(
     
     access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
-        data={"sub": current_user.phone, "user_id": current_user.id}, expires_delta=access_token_expires
+        data={"sub": current_user.phone, "user_id": current_user.id, "role": "parent"}, expires_delta=access_token_expires
     )
     
     return {
@@ -156,7 +156,7 @@ def login(user: schemas.ParentLogin, db: Session = Depends(get_db)):
     
     access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
-        data={"sub": db_user.phone, "user_id": db_user.id}, expires_delta=access_token_expires
+        data={"sub": db_user.phone, "user_id": db_user.id, "role": "parent"}, expires_delta=access_token_expires
     )
     return {
         "access_token": access_token, 
@@ -165,3 +165,25 @@ def login(user: schemas.ParentLogin, db: Session = Depends(get_db)):
         "username": db_user.username,
         "avatar_url": db_user.avatar_url
     }
+
+
+@router.post("/child-token", response_model=schemas.ChildToken)
+def create_child_token(
+    current_user: models.Parent = Depends(deps.get_current_parent),
+    db: Session = Depends(get_db),
+):
+    child = db.query(models.Child).filter(models.Child.parent_id == current_user.id).first()
+    if not child:
+        raise HTTPException(status_code=404, detail="Child profile not found")
+
+    access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(
+        data={
+            "sub": f"child:{child.id}",
+            "role": "child",
+            "child_id": child.id,
+            "parent_id": current_user.id,
+        },
+        expires_delta=access_token_expires,
+    )
+    return {"access_token": access_token, "token_type": "bearer", "child_id": child.id}

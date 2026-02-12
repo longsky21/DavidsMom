@@ -7,8 +7,11 @@ import ParentSettings from '@/pages/parent/Settings';
 import ParentReport from '@/pages/parent/Report';
 import ParentProfile from '@/pages/parent/Profile';
 import WordManagement from '@/pages/parent/Words';
+import ParentMedia from '@/pages/parent/Media';
 import ChildHome from '@/pages/child/Home';
-import Flashcard from '@/pages/child/Flashcard';
+import ChildFlashcard from '@/pages/child/Flashcard';
+import ChildVideos from '@/pages/child/Videos';
+import ChildListening from '@/pages/child/Listening';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AxiosInterceptor from '@/components/AxiosInterceptor';
 import './i18n';
@@ -56,6 +59,11 @@ function App() {
               <ParentProfile />
             </ProtectedRoute>
           } />
+          <Route path="/parent/media" element={
+            <ProtectedRoute>
+              <ParentMedia />
+            </ProtectedRoute>
+          } />
           
           <Route path="/child" element={
             <ProtectedRoute>
@@ -64,7 +72,17 @@ function App() {
           } />
           <Route path="/child/flashcard" element={
             <ProtectedRoute>
-              <Flashcard />
+              <ChildFlashcard />
+            </ProtectedRoute>
+          } />
+          <Route path="/child/videos" element={
+            <ProtectedRoute>
+              <ChildVideos />
+            </ProtectedRoute>
+          } />
+          <Route path="/child/listening" element={
+            <ProtectedRoute>
+              <ChildListening />
             </ProtectedRoute>
           } />
 
