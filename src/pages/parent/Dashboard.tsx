@@ -1,14 +1,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Button, Card, NavBar } from 'antd-mobile';
+import { Card, NavBar } from 'antd-mobile';
 import { BookOpen, Settings, BarChart2, Video } from 'lucide-react';
 import useStore from '@/store/useStore';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const user = useStore((state: any) => state.user);
+  const user = useStore((state) => state.user);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -50,6 +50,14 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div 
+          onClick={() => navigate('/parent/media')}
+          className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center h-32 active:bg-gray-50"
+        >
+          <Video className="text-purple-500 mb-2" size={32} />
+          <span className="font-medium text-gray-700">视频/音频</span>
+        </div>
+
+        <div 
           onClick={() => navigate('/parent/report')} 
           className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center h-32 active:bg-gray-50"
         >
@@ -57,20 +65,12 @@ const Dashboard: React.FC = () => {
           <span className="font-medium text-gray-700">{t('learning_report')}</span>
         </div>
 
-        <div 
+        <div
           onClick={() => navigate('/parent/settings')} 
           className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center h-32 active:bg-gray-50"
         >
           <Settings className="text-orange-500 mb-2" size={32} />
           <span className="font-medium text-gray-700">{t('learning_settings')}</span>
-        </div>
-
-        <div
-          onClick={() => navigate('/parent/media')}
-          className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center h-32 active:bg-gray-50"
-        >
-          <Video className="text-purple-500 mb-2" size={32} />
-          <span className="font-medium text-gray-700">视频/听力</span>
         </div>
       </div>
       </div>

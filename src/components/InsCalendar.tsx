@@ -3,10 +3,16 @@ import dayjs from 'dayjs';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import classNames from 'classnames';
 
+export interface DayMarks {
+  hasWords?: boolean;
+  hasVideo?: boolean;
+  hasAudio?: boolean;
+}
+
 interface InsCalendarProps {
   value: Date;
   onChange: (date: Date) => void;
-  marks?: Set<string>; // Set of date strings 'YYYY-MM-DD' that have records
+  marks?: Map<string, DayMarks>; // Map of date strings 'YYYY-MM-DD' to DayMarks
 }
 
 const InsCalendar: React.FC<InsCalendarProps> = ({ value, onChange, marks }) => {
@@ -90,27 +96,33 @@ const InsCalendar: React.FC<InsCalendarProps> = ({ value, onChange, marks }) => 
       const dateStr = date.format('YYYY-MM-DD');
       const isSelected = date.isSame(value, 'day');
       const isToday = date.isSame(dayjs(), 'day');
-      const hasMark = marks?.has(dateStr);
+      const dateMark = marks?.get(dateStr);
+      const hasAnyActivity = dateMark && (dateMark.hasWords || dateMark.hasVideo || dateMark.hasAudio);
 
       days.push(
         <div
           key={i}
           onClick={() => handleDateClick(date)}
-          className="flex items-center justify-center h-7 w-full relative cursor-pointer"
+          className="flex flex-col items-center justify-start h-9 w-full relative cursor-pointer pt-0.5"
         >
           <div
             className={classNames(
               "h-6 w-6 flex items-center justify-center rounded-md text-[13px] font-medium transition-all duration-300",
               {
                 "bg-[#4A90E2] text-white shadow-md": isSelected, // Selected: Deep Blue
-                "bg-[#E8F3FF] text-[#4A90E2]": hasMark && !isSelected, // Has Mark but not selected: Light Blue
-                "text-gray-700": !isSelected && !hasMark,
+                "bg-[#E8F3FF] text-[#4A90E2]": hasAnyActivity && !isSelected, // Has Mark but not selected: Light Blue
+                "text-gray-700": !isSelected && !hasAnyActivity,
                 "font-bold": isToday,
-                "border border-gray-200": isToday && !isSelected && !hasMark
+                "border border-gray-200": isToday && !isSelected && !hasAnyActivity
               }
             )}
           >
             {i}
+          </div>
+          <div className="flex space-x-[2px] mt-0.5 h-1 items-center justify-center">
+            {dateMark?.hasWords && <div className="w-1 h-1 rounded-full bg-yellow-400" />}
+            {dateMark?.hasVideo && <div className="w-1 h-1 rounded-full bg-green-500" />}
+            {dateMark?.hasAudio && <div className="w-1 h-1 rounded-full bg-blue-500" />}
           </div>
         </div>
       );

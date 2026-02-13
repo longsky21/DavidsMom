@@ -1,29 +1,36 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NavBar, Form, Stepper, Button, Toast, Switch, Input, Card } from 'antd-mobile';
-import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import useStore from '@/store/useStore';
+import type { UserState } from '@/store/useStore';
+
+interface LearningSettingsValues {
+  daily_words: number;
+  reminder_time: string;
+  difficulty_level: number;
+  auto_adjust_difficulty: boolean;
+  daily_video_minutes: number;
+  daily_audio_minutes: number;
+  daily_video_items: number;
+  daily_audio_items: number;
+  auto_upgrade_media_difficulty?: boolean;
+}
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
-  const token = useStore((state: any) => state.token);
+  const token = useStore((state: UserState) => state.token);
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [autoDifficulty, setAutoDifficulty] = useState(true);
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get('/api/learning/settings', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const data = response.data;
+      const data = response.data as LearningSettingsValues;
       form.setFieldsValue(data);
       setAutoDifficulty(data.auto_adjust_difficulty);
     } catch (error) {
@@ -32,9 +39,13 @@ const Settings: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [form, token]);
 
-  const onFinish = async (values: any) => {
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  const onFinish = async (values: Partial<LearningSettingsValues>) => {
     try {
       setLoading(true);
       await axios.put('/api/learning/settings', values, {

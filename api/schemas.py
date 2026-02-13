@@ -140,6 +140,9 @@ class LearningHistoryItem(BaseModel):
     total_words: int
     completed_words: int
     duration_minutes: float
+    has_words: bool = False
+    has_video: bool = False
+    has_audio: bool = False
 
 class LearningDetailItem(BaseModel):
     word: str
@@ -147,10 +150,19 @@ class LearningDetailItem(BaseModel):
     time_spent: float
     created_at: datetime
 
+class MediaSessionDetailItem(BaseModel):
+    resource_title: str
+    module: str
+    duration_seconds: int
+    completion_percent: float
+    started_at: datetime
+
 class LearningDayDetail(BaseModel):
     date: date
     summary: LearningHistoryItem
     records: List[LearningDetailItem]
+    video_sessions: List[MediaSessionDetailItem] = []
+    audio_sessions: List[MediaSessionDetailItem] = []
 
 class MediaResourceResponse(BaseModel):
     id: str

@@ -7,7 +7,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const token = useStore((state: any) => state.token);
+  const token = useStore((state) => state.token);
   const location = useLocation();
 
   if (!token) {

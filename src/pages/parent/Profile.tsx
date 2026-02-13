@@ -1,16 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { NavBar, Form, Input, Button, Toast, Avatar, Card } from 'antd-mobile';
-import { useTranslation } from 'react-i18next';
+import { NavBar, Form, Input, Button, Toast, Card } from 'antd-mobile';
 import { Camera, User } from 'lucide-react';
 import axios from 'axios';
 import useStore from '@/store/useStore';
+import type { UserState } from '@/store/useStore';
+
+interface ProfileResponse {
+  parent: { username: string; avatar_url?: string | null };
+  child: { nickname: string; age?: number | null; avatar_url?: string | null };
+}
+
+interface UpdateProfileResponse {
+  user_id: string;
+  username: string;
+}
+
+interface UploadResponse {
+  url: string;
+}
+
+interface ProfileFormValues {
+  parent_username: string;
+  child_nickname: string;
+  child_age?: string | number;
+}
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
-  const token = useStore((state: any) => state.token);
-  const setUser = useStore((state: any) => state.setUser);
+  const token = useStore((state: UserState) => state.token);
+  const setUser = useStore((state: UserState) => state.setUser);
   
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -19,16 +38,12 @@ const Profile: React.FC = () => {
   const [parentAvatar, setParentAvatar] = useState<string>('');
   const [childAvatar, setChildAvatar] = useState<string>('');
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const response = await axios.get('/api/auth/me', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const data = response.data;
+      const data = response.data as ProfileResponse;
       
       form.setFieldsValue({
         parent_username: data.parent.username,
@@ -44,7 +59,11 @@ const Profile: React.FC = () => {
     } finally {
       setInitialLoading(false);
     }
-  };
+  }, [form, token]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'parent' | 'child') => {
     const file = event.target.files?.[0];
@@ -82,7 +101,7 @@ const Profile: React.FC = () => {
         // Since backend returns `/uploads/...`, and we mounted `/uploads` in FastAPI app.
         // We need to make sure frontend can reach `/uploads`.
         
-        const uploadedUrl = response.data.url;
+        const uploadedUrl = (response.data as UploadResponse).url;
         if (type === 'parent') setParentAvatar(uploadedUrl);
         else setChildAvatar(uploadedUrl);
         
@@ -94,7 +113,7 @@ const Profile: React.FC = () => {
     }
   };
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: ProfileFormValues) => {
     try {
       setLoading(true);
       const payload = {
@@ -108,7 +127,7 @@ const Profile: React.FC = () => {
       });
       
       // Update local store with new user info (at least what we have)
-      const newTokenData = response.data;
+      const newTokenData = response.data as UpdateProfileResponse;
       // We might need to refresh the whole user object or just update parts. 
       // The login response structure is what we usually store.
       // Let's rely on the response from update_profile which returns a Token structure with user info

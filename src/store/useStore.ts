@@ -1,17 +1,20 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface UserState {
+export interface User {
+  id: string;
+  username: string;
+  phone?: string;
+  avatar_url?: string;
+}
+
+export interface UserState {
   token: string | null;
   childToken: string | null;
-  user: {
-    id: string;
-    username: string;
-    phone: string;
-  } | null;
+  user: User | null;
   setToken: (token: string) => void;
   setChildToken: (token: string | null) => void;
-  setUser: (user: any) => void;
+  setUser: (user: User | null) => void;
   logout: () => void;
 }
 

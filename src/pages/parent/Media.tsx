@@ -4,8 +4,10 @@ import { NavBar, Tabs, Toast, Switch, Button, Card, Tag, InfiniteScroll } from '
 import { Plus } from 'lucide-react';
 import axios from 'axios';
 import useStore from '@/store/useStore';
+import type { UserState } from '@/store/useStore';
 
 type MediaType = 'video' | 'audio';
+type ParentMediaTab = 'video' | 'audio' | 'library';
 
 interface MediaResource {
   id: string;
@@ -31,11 +33,13 @@ interface MediaPlanItem {
   resource: MediaResource;
 }
 
+type MediaPlanPatch = Partial<Pick<MediaPlanItem, 'is_enabled' | 'is_deleted' | 'order_index'>>;
+
 const ParentMedia: React.FC = () => {
   const navigate = useNavigate();
-  const token = useStore((s: any) => s.token);
+  const token = useStore((s: UserState) => s.token);
 
-  const [activeTab, setActiveTab] = useState<'video' | 'audio' | 'library'>('video');
+  const [activeTab, setActiveTab] = useState<ParentMediaTab>('video');
 
   const [videoPlan, setVideoPlan] = useState<MediaPlanItem[]>([]);
   const [audioPlan, setAudioPlan] = useState<MediaPlanItem[]>([]);
@@ -65,7 +69,7 @@ const ParentMedia: React.FC = () => {
       });
       if (module === 'video') setVideoPlan(data);
       else setAudioPlan(data);
-    } catch (e) {
+    } catch {
       Toast.show({ content: '加载学习计划失败', icon: 'fail' });
     } finally {
       setLoadingPlan(false);
@@ -79,7 +83,7 @@ const ParentMedia: React.FC = () => {
         headers: authHeaders,
       });
       setDirectoryOptions(Array.isArray(data) ? data : []);
-    } catch (e) {
+    } catch {
       setDirectoryOptions([]);
     }
   };
@@ -108,7 +112,7 @@ const ParentMedia: React.FC = () => {
       const newOffset = nextOffset + items.length;
       setOffset(newOffset);
       setHasMore(items.length === pageSize);
-    } catch (e) {
+    } catch {
       Toast.show({ content: '加载资源库失败', icon: 'fail' });
       setHasMore(false);
     } finally {
@@ -140,7 +144,7 @@ const ParentMedia: React.FC = () => {
     fetchResourcesPage(0);
   }, [activeTab, mediaTypeFilter, difficulty, selectedDirectories]);
 
-  const updatePlanItem = async (id: string, patch: any) => {
+  const updatePlanItem = async (id: string, patch: MediaPlanPatch) => {
     await axios.patch(`/api/media/plan/${id}`, patch, { headers: authHeaders });
   };
 
@@ -148,7 +152,7 @@ const ParentMedia: React.FC = () => {
     try {
       await updatePlanItem(item.id, { is_enabled: !item.is_enabled });
       await fetchPlan(item.module);
-    } catch (e) {
+    } catch {
       Toast.show({ content: '更新失败', icon: 'fail' });
     }
   };
@@ -158,7 +162,7 @@ const ParentMedia: React.FC = () => {
       await updatePlanItem(item.id, { is_deleted: true });
       await fetchPlan(item.module);
       Toast.show({ content: '已删除', icon: 'success' });
-    } catch (e) {
+    } catch {
       Toast.show({ content: '删除失败', icon: 'fail' });
     }
   };
@@ -174,7 +178,7 @@ const ParentMedia: React.FC = () => {
       await updatePlanItem(item.id, { order_index: other.order_index });
       await updatePlanItem(other.id, { order_index: item.order_index });
       await fetchPlan(item.module);
-    } catch (e) {
+    } catch {
       Toast.show({ content: '排序失败', icon: 'fail' });
     }
   };
@@ -193,12 +197,12 @@ const ParentMedia: React.FC = () => {
         setHasMore(true);
         await fetchResourcesPage(0);
       }
-    } catch (e) {
+    } catch {
       Toast.show({ content: '加入失败', icon: 'fail' });
     }
   };
 
-  const PlanList = ({ module, items }: { module: MediaType; items: MediaPlanItem[] }) => (
+  const PlanList = ({ items }: { items: MediaPlanItem[] }) => (
     <div className="p-4 space-y-4">
       {items.length === 0 && (
         <Card className="bg-white shadow-sm rounded-xl border border-gray-100 overflow-hidden">
@@ -383,14 +387,14 @@ const ParentMedia: React.FC = () => {
 
       <Tabs
         activeKey={activeTab}
-        onChange={(k) => setActiveTab(k as any)}
+        onChange={(k) => setActiveTab(k as ParentMediaTab)}
         style={{ '--title-font-size': '16px' }}
       >
         <Tabs.Tab title="视频计划" key="video">
-          <PlanList module="video" items={videoPlan} />
+          <PlanList items={videoPlan} />
         </Tabs.Tab>
         <Tabs.Tab title="听力计划" key="audio">
-          <PlanList module="audio" items={audioPlan} />
+          <PlanList items={audioPlan} />
         </Tabs.Tab>
         <Tabs.Tab title="资源库" key="library">
           <Library />

@@ -6,7 +6,7 @@ import { Toast } from 'antd-mobile';
 
 const AxiosInterceptor: React.FC = () => {
   const navigate = useNavigate();
-  const logout = useStore((state: any) => state.logout);
+  const logout = useStore((state) => state.logout);
 
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(

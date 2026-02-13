@@ -1,10 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Button, List, Input, Modal, Toast, Card, Tag, NavBar, Popup, FloatingBubble, SwipeAction, Dialog, InfiniteScroll } from 'antd-mobile';
-import { Plus, Search, Volume2, ArrowLeft } from 'lucide-react';
+import { Button, Input, Modal, Toast, Card, Tag, NavBar, Popup, FloatingBubble, SwipeAction, Dialog, InfiniteScroll } from 'antd-mobile';
+import { Plus, Search, Volume2 } from 'lucide-react';
 import axios from 'axios';
 import useStore from '@/store/useStore';
+import type { UserState } from '@/store/useStore';
+
+interface WordItem {
+  id: number;
+  word: string;
+  difficulty: number;
+  phonetic_us?: string;
+  phonetic_uk?: string;
+  meaning?: string;
+  example?: string;
+  audio_us_url?: string;
+  audio_uk_url?: string;
+  image_url?: string;
+}
+
+interface WordPreview {
+  word: string;
+  phonetic_us?: string;
+  phonetic_uk?: string;
+  meaning: string;
+  example?: string;
+  audio_us_url?: string;
+  audio_uk_url?: string;
+  image_url?: string;
+}
 
 const ImageWithPlaceholder = ({ src, alt, className }: { src: string, alt: string, className?: string }) => {
     const [loaded, setLoaded] = useState(false);
@@ -28,13 +53,13 @@ const ImageWithPlaceholder = ({ src, alt, className }: { src: string, alt: strin
 const WordManagement: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const token = useStore((state: any) => state.token);
-  const [words, setWords] = useState<any[]>([]);
+  const token = useStore((state: UserState) => state.token);
+  const [words, setWords] = useState<WordItem[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [selectedWord, setSelectedWord] = useState<any>(null);
+  const [selectedWord, setSelectedWord] = useState<WordItem | null>(null);
   const [isDetailVisible, setIsDetailVisible] = useState(false);
   const [newWord, setNewWord] = useState('');
-  const [previewInfo, setPreviewInfo] = useState<any>(null);
+  const [previewInfo, setPreviewInfo] = useState<WordPreview | null>(null);
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -52,9 +77,9 @@ const WordManagement: React.FC = () => {
                 const response = await axios.get(`/api/words/suggest?q=${newWord}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                setSuggestions(response.data);
+                setSuggestions(response.data as string[]);
                 setShowSuggestions(true);
-            } catch (e) {
+            } catch {
                 console.error("Failed to fetch suggestions");
             }
         } else {
@@ -72,7 +97,7 @@ const WordManagement: React.FC = () => {
       const response = await axios.get(`/api/words/?skip=${page * limit}&limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const newWords = response.data;
+      const newWords = response.data as WordItem[];
       if (newWords.length > 0) {
         setWords(prev => [...prev, ...newWords]);
         setPage(prev => prev + 1);
@@ -103,11 +128,12 @@ const WordManagement: React.FC = () => {
       const response = await axios.get(`/api/words/search?word=${word}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setPreviewInfo(response.data);
-      if (response.data && response.data.word) {
-          setNewWord(response.data.word);
+      const data = response.data as WordPreview;
+      setPreviewInfo(data);
+      if (data.word) {
+          setNewWord(data.word);
       }
-    } catch (error) {
+    } catch {
       Toast.show({ content: 'Could not find word details' });
       setPreviewInfo(null);
     } finally {
@@ -122,7 +148,7 @@ const WordManagement: React.FC = () => {
         word: previewInfo.word,
         phonetic_us: previewInfo.phonetic_us,
         phonetic_uk: previewInfo.phonetic_uk,
-        meaning: previewInfo.meaning || "Default Meaning", // Fallback if API didn't get meaning
+        meaning: previewInfo.meaning || "Default Meaning",
         example: previewInfo.example,
         audio_us_url: previewInfo.audio_us_url,
         audio_uk_url: previewInfo.audio_uk_url,
@@ -140,7 +166,7 @@ const WordManagement: React.FC = () => {
       setPage(0);
       setHasMore(true);
       // loadMore will be triggered by InfiniteScroll when hasMore becomes true and list is empty/short
-    } catch (error) {
+    } catch {
       Toast.show({ icon: 'fail', content: 'Failed to add word' });
     }
   };
@@ -167,7 +193,7 @@ const WordManagement: React.FC = () => {
         });
         Toast.show('已删除');
         setWords(prev => prev.filter(w => w.id !== id));
-    } catch (e) {
+    } catch {
         Toast.show('删除失败');
     }
   };
@@ -345,7 +371,7 @@ const WordManagement: React.FC = () => {
                     <label className="text-xs text-blue-400 font-bold uppercase mb-1 block">Meaning</label>
                     <Input 
                         value={previewInfo.meaning}
-                        onChange={val => setPreviewInfo({...previewInfo, meaning: val})}
+                        onChange={(val) => setPreviewInfo((prev) => (prev ? { ...prev, meaning: val } : prev))}
                         className="bg-white border border-blue-100 rounded px-2 py-1 w-full text-sm"
                     />
                 </div>

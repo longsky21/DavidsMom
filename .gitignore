@@ -36,3 +36,4 @@ venv
 # Vercel
 .vercel
 uploads/*
+package-lock.json

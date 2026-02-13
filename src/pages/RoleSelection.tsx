@@ -2,17 +2,17 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Toast } from 'antd-mobile';
-import { User, Baby, LogOut, Power } from 'lucide-react';
+import { Power } from 'lucide-react';
 import useStore from '@/store/useStore';
 import axios from 'axios';
 
 const RoleSelection: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const logout = useStore((state: any) => state.logout);
-  const token = useStore((state: any) => state.token);
-  const setChildToken = useStore((state: any) => state.setChildToken);
-  const user = useStore((state: any) => state.user);
+  const logout = useStore((state) => state.logout);
+  const token = useStore((state) => state.token);
+  const setChildToken = useStore((state) => state.setChildToken);
+  const user = useStore((state) => state.user);
 
   const handleLogout = () => {
     logout();
@@ -28,7 +28,7 @@ const RoleSelection: React.FC = () => {
       );
       setChildToken(data.access_token);
       navigate('/child');
-    } catch (e) {
+    } catch {
       Toast.show({ content: '进入儿童模式失败，请重试', icon: 'fail' });
     }
   };
