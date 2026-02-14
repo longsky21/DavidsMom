@@ -30,6 +30,7 @@ const Profile: React.FC = () => {
   const navigate = useNavigate();
   const token = useStore((state: UserState) => state.token);
   const setUser = useStore((state: UserState) => state.setUser);
+  const setChildNickname = useStore((state: UserState) => state.setChildNickname);
   
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -53,13 +54,14 @@ const Profile: React.FC = () => {
       
       setParentAvatar(data.parent.avatar_url || '');
       setChildAvatar(data.child.avatar_url || '');
+      setChildNickname(data.child.nickname || null);
     } catch (error) {
       console.error(error);
       Toast.show({ content: '加载失败', icon: 'fail' });
     } finally {
       setInitialLoading(false);
     }
-  }, [form, token]);
+  }, [form, token, setChildNickname]);
 
   useEffect(() => {
     fetchProfile();
@@ -136,6 +138,7 @@ const Profile: React.FC = () => {
           username: newTokenData.username,
           avatar_url: parentAvatar // We know we just updated it
       });
+      setChildNickname(values.child_nickname || null);
 
       Toast.show({ content: '保存成功', icon: 'success' });
       navigate('/parent/dashboard');

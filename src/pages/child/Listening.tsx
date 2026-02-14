@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Toast } from 'antd-mobile';
-import { Headphones, Star, Music } from 'lucide-react';
+import { ChevronDown, ChevronRight, Headphones, Star, Music } from 'lucide-react';
 import axios from 'axios';
 import useStore from '@/store/useStore';
 import type { UserState } from '@/store/useStore';
@@ -25,6 +25,7 @@ interface MediaPlanItem {
 interface StartSessionResponse {
   id: string;
 }
+const nameCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 
 const ChildListening: React.FC = () => {
   const navigate = useNavigate();
@@ -37,8 +38,25 @@ const ChildListening: React.FC = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [playedMs, setPlayedMs] = useState<number>(0);
   const [playingSince, setPlayingSince] = useState<number | null>(null);
+  const [hiddenGroups, setHiddenGroups] = useState<Set<string>>(new Set());
 
   const selected = useMemo(() => planItems.find((x) => x.id === selectedId) || null, [planItems, selectedId]);
+  const groupedItems = useMemo(() => {
+    const map = new Map<string, MediaPlanItem[]>();
+    planItems.forEach((item) => {
+      const dir = item.resource.directory?.trim() || '未分组';
+      const list = map.get(dir);
+      if (list) list.push(item);
+      else map.set(dir, [item]);
+    });
+    return Array.from(map.entries())
+      .sort(([a], [b]) => nameCollator.compare(a, b))
+      .map(([directory, list]) => ({
+        directory,
+        items: list.sort((x, y) => nameCollator.compare(x.resource.filename, y.resource.filename)),
+      }));
+  }, [planItems]);
+  const flatItems = useMemo(() => groupedItems.flatMap((group) => group.items), [groupedItems]);
 
   const fetchPlan = useCallback(async () => {
     try {
@@ -117,25 +135,25 @@ const ChildListening: React.FC = () => {
   };
 
   const handleNext = () => {
-      if (!selectedId || planItems.length === 0) return;
-      const idx = planItems.findIndex(i => i.id === selectedId);
-      if (idx !== -1 && idx < planItems.length - 1) {
-          handleSelect(planItems[idx + 1].id);
+      if (!selectedId || flatItems.length === 0) return;
+      const idx = flatItems.findIndex(i => i.id === selectedId);
+      if (idx !== -1 && idx < flatItems.length - 1) {
+          handleSelect(flatItems[idx + 1].id);
       }
   };
 
   const handlePrev = () => {
-      if (!selectedId || planItems.length === 0) return;
-      const idx = planItems.findIndex(i => i.id === selectedId);
+      if (!selectedId || flatItems.length === 0) return;
+      const idx = flatItems.findIndex(i => i.id === selectedId);
       if (idx > 0) {
-          handleSelect(planItems[idx - 1].id);
+          handleSelect(flatItems[idx - 1].id);
       }
   };
 
   const handlePlayerClick = async () => {
       if (!selected) {
-          if (planItems.length > 0) {
-              const firstItem = planItems[0];
+          if (flatItems.length > 0) {
+              const firstItem = flatItems[0];
               setSelectedId(firstItem.id);
               // Auto-start session for the first item
               if (!sessionId) {
@@ -152,7 +170,7 @@ const ChildListening: React.FC = () => {
     <ChildLayout bgClass="bg-blue-50" onBack={handleBack}>
        <div className="flex flex-col h-full w-full lg:max-w-4xl mx-auto">
         <h1 className="text-3xl font-black text-blue-600 mb-4 px-2 drop-shadow-sm font-cartoon tracking-wide">
-            Listen Practice
+            Listening Practice
         </h1>
 
         {/* Player Section */}
@@ -188,42 +206,70 @@ const ChildListening: React.FC = () => {
         </div>
 
         {/* Audio List */}
-        <div className="flex-1 overflow-y-auto px-2 pb-24">
-            <div className="grid gap-3">
-                {planItems.map((item, index) => (
-                    <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleSelect(item.id)}
-                        className={`
-                            bg-white p-3 rounded-2xl shadow-sm border-2 cursor-pointer flex items-center gap-3 transition-colors
-                            ${selectedId === item.id ? 'border-blue-500 bg-blue-50' : 'border-transparent hover:border-blue-100'}
-                        `}
-                    >
-                        <div className={`
-                            w-11 h-11 rounded-full flex items-center justify-center shrink-0
-                            ${selectedId === item.id ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-500'}
-                        `}>
-                            <Music size={20} />
+        <div className="flex-1 overflow-y-auto px-2 pb-24 space-y-5">
+            {groupedItems.map((group) => (
+                <div key={group.directory} className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                        <div className="text-sm font-bold text-gray-600">{group.directory}</div>
+                        <button
+                            type="button"
+                            className="flex items-center gap-1 text-sm text-gray-500 px-1 py-0.5"
+                            onClick={() => {
+                                setHiddenGroups((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(group.directory)) next.delete(group.directory);
+                                    else next.add(group.directory);
+                                    return next;
+                                });
+                            }}
+                        >
+                            <span className="text-blue-600 font-bold">{group.items.length}</span>
+                            {hiddenGroups.has(group.directory) ? (
+                                <ChevronRight size={16} className="text-gray-400" />
+                            ) : (
+                                <ChevronDown size={16} className="text-gray-400" />
+                            )}
+                        </button>
+                    </div>
+                    {!hiddenGroups.has(group.directory) && (
+                        <div className="grid gap-3">
+                            {group.items.map((item, index) => (
+                                <motion.div
+                                    key={item.id}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.05 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => handleSelect(item.id)}
+                                    className={`
+                                        bg-white p-3 rounded-2xl shadow-sm border-2 cursor-pointer flex items-center gap-3 transition-colors
+                                        ${selectedId === item.id ? 'border-blue-500 bg-blue-50' : 'border-transparent hover:border-blue-100'}
+                                    `}
+                                >
+                                    <div className={`
+                                        w-11 h-11 rounded-full flex items-center justify-center shrink-0
+                                        ${selectedId === item.id ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-500'}
+                                    `}>
+                                        <Music size={20} />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className={`font-bold truncate ${selectedId === item.id ? 'text-blue-700' : 'text-gray-700'}`}>
+                                            {item.resource.filename}
+                                        </div>
+                                        <div className="text-xs text-gray-400 flex items-center gap-1">
+                                            <Star size={10} className="text-yellow-400 fill-yellow-400" />
+                                            Level {item.resource.difficulty_level}
+                                        </div>
+                                    </div>
+                                    {selectedId === item.id && (
+                                         <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                                    )}
+                                </motion.div>
+                            ))}
                         </div>
-                        <div className="min-w-0 flex-1">
-                            <div className={`font-bold truncate ${selectedId === item.id ? 'text-blue-700' : 'text-gray-700'}`}>
-                                {item.resource.filename}
-                            </div>
-                            <div className="text-xs text-gray-400 flex items-center gap-1">
-                                <Star size={10} className="text-yellow-400 fill-yellow-400" />
-                                Level {item.resource.difficulty_level}
-                            </div>
-                        </div>
-                        {selectedId === item.id && (
-                             <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                        )}
-                    </motion.div>
-                ))}
-            </div>
+                    )}
+                </div>
+            ))}
 
             {planItems.length === 0 && (
                 <div className="text-center py-10 text-gray-400 font-medium">

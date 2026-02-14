@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { NavBar, Tabs, Toast, Switch, Button, Card, Tag, InfiniteScroll } from 'antd-mobile';
+import { NavBar, Tabs, Toast, Switch, Button, Card, Tag, InfiniteScroll, Collapse, SwipeAction } from 'antd-mobile';
 import { Plus } from 'lucide-react';
 import axios from 'axios';
 import useStore from '@/store/useStore';
@@ -8,6 +8,7 @@ import type { UserState } from '@/store/useStore';
 
 type MediaType = 'video' | 'audio';
 type ParentMediaTab = 'video' | 'audio' | 'library';
+const nameCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 
 interface MediaResource {
   id: string;
@@ -33,7 +34,7 @@ interface MediaPlanItem {
   resource: MediaResource;
 }
 
-type MediaPlanPatch = Partial<Pick<MediaPlanItem, 'is_enabled' | 'is_deleted' | 'order_index'>>;
+type MediaPlanPatch = Partial<Pick<MediaPlanItem, 'is_enabled' | 'is_deleted'>>;
 
 const ParentMedia: React.FC = () => {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ const ParentMedia: React.FC = () => {
   const [audioPlan, setAudioPlan] = useState<MediaPlanItem[]>([]);
 
   const [mediaTypeFilter, setMediaTypeFilter] = useState<MediaType>('video');
-  const [difficulty, setDifficulty] = useState<number>(1);
+  const [difficulty, setDifficulty] = useState<number>(0);
   const [directoryOptions, setDirectoryOptions] = useState<string[]>([]);
   const [selectedDirectories, setSelectedDirectories] = useState<string[]>([]);
   const [resources, setResources] = useState<MediaResource[]>([]);
@@ -94,7 +95,7 @@ const ParentMedia: React.FC = () => {
       const { data } = await axios.get('/api/media/resources', {
         params: {
           media_type: mediaTypeFilter,
-          difficulty_level: difficulty,
+          difficulty_level: difficulty === 0 ? undefined : difficulty,
           directories: selectedDirectories.length > 0 ? selectedDirectories.join(',') : undefined,
           limit: pageSize,
           offset: nextOffset,
@@ -167,22 +168,6 @@ const ParentMedia: React.FC = () => {
     }
   };
 
-  const handleMove = async (item: MediaPlanItem, direction: 'up' | 'down') => {
-    const list = item.module === 'video' ? videoPlan : audioPlan;
-    const idx = list.findIndex((x) => x.id === item.id);
-    const nextIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (idx < 0 || nextIdx < 0 || nextIdx >= list.length) return;
-
-    const other = list[nextIdx];
-    try {
-      await updatePlanItem(item.id, { order_index: other.order_index });
-      await updatePlanItem(other.id, { order_index: item.order_index });
-      await fetchPlan(item.module);
-    } catch {
-      Toast.show({ content: '排序失败', icon: 'fail' });
-    }
-  };
-
   const handleAddToPlan = async (resource: MediaResource, module: MediaType) => {
     try {
       await axios.post(
@@ -202,56 +187,87 @@ const ParentMedia: React.FC = () => {
     }
   };
 
-  const PlanList = ({ items }: { items: MediaPlanItem[] }) => (
-    <div className="p-4 space-y-4">
+  const PlanList = ({ items }: { items: MediaPlanItem[] }) => {
+    const grouped = useMemo(() => {
+      const map = new Map<string, MediaPlanItem[]>();
+      items.forEach((item) => {
+        const dir = item.resource.directory?.trim() || '未分组';
+        const list = map.get(dir);
+        if (list) list.push(item);
+        else map.set(dir, [item]);
+      });
+      return Array.from(map.entries())
+        .sort(([a], [b]) => nameCollator.compare(a, b))
+        .map(([directory, list]) => ({
+          directory,
+          items: list.sort((x, y) => nameCollator.compare(x.resource.filename, y.resource.filename)),
+        }));
+    }, [items]);
+
+    return (
+      <div className="p-4 space-y-4">
       {items.length === 0 && (
         <Card className="bg-white shadow-sm rounded-xl border border-gray-100 overflow-hidden">
           <div className="p-4 text-gray-500 text-sm">暂未添加资源，可在“资源库”中选择</div>
         </Card>
       )}
 
-      {items.map((item) => (
-        <Card
-          key={item.id}
-          className="bg-white active:bg-gray-50 transition-all shadow-sm hover:shadow-md rounded-xl border border-gray-100 overflow-hidden"
-        >
-          <div className="p-4 flex gap-3 items-start">
-            <div className="flex-1 min-w-0">
-              <div className="text-base font-bold text-gray-800 truncate tracking-tight">{item.resource.filename}</div>
-              <div className="mt-2 flex flex-wrap gap-2 items-center">
-                <Tag color="primary" fill="outline" className="rounded-md px-2">
-                  {item.resource.media_type === 'video' ? '视频' : '音频'}
-                </Tag>
-                <Tag color="warning" fill="outline" className="rounded-md px-2">
-                  {formatLevel(item.resource.difficulty_level)}
-                </Tag>
-                {item.resource.directory && (
-                  <Tag color="default" fill="outline" className="rounded-md px-2">
-                    {item.resource.directory}
-                  </Tag>
-                )}
-              </div>
-            </div>
+      {items.length > 0 && (
+        <Collapse defaultActiveKey={grouped.map((group) => group.directory)} accordion={false}>
+          {grouped.map((group) => (
+            <Collapse.Panel
+              key={group.directory}
+              title={
+                <div className="flex items-center justify-between w-full pr-2">
+                  <span className="font-bold text-gray-700">{group.directory}</span>
+                  <span className="text-xs text-gray-400">{group.items.length}</span>
+                </div>
+              }
+            >
+              <div className="space-y-3">
+                {group.items.map((item) => (
+                  <SwipeAction
+                    key={item.id}
+                    rightActions={[
+                      {
+                        key: 'delete',
+                        text: '删除',
+                        color: 'danger',
+                        onClick: () => handleDelete(item),
+                      },
+                    ]}
+                  >
+                    <Card className="bg-white active:bg-gray-50 transition-all shadow-sm hover:shadow-md rounded-xl border border-gray-100 overflow-hidden">
+                      <div className="p-4 flex gap-3 items-start">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-base font-bold text-gray-800 truncate tracking-tight">
+                            {item.resource.filename}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2 items-center">
+                            <Tag color="primary" fill="outline" className="rounded-md px-2">
+                              {item.resource.media_type === 'video' ? '视频' : '音频'}
+                            </Tag>
+                            <Tag color="warning" fill="outline" className="rounded-md px-2">
+                              {formatLevel(item.resource.difficulty_level)}
+                            </Tag>
+                          </div>
+                        </div>
 
-            <div className="flex flex-col items-end gap-2 flex-shrink-0">
-              <Switch checked={item.is_enabled} onChange={() => handleToggleEnabled(item)} />
-              <div className="flex items-center gap-2">
-                <Button size="mini" onClick={() => handleMove(item, 'up')}>
-                  上移
-                </Button>
-                <Button size="mini" onClick={() => handleMove(item, 'down')}>
-                  下移
-                </Button>
-                <Button size="mini" color="danger" onClick={() => handleDelete(item)}>
-                  删除
-                </Button>
+                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          <Switch checked={item.is_enabled} onChange={() => handleToggleEnabled(item)} />
+                        </div>
+                      </div>
+                    </Card>
+                  </SwipeAction>
+                ))}
               </div>
-            </div>
-          </div>
-        </Card>
-      ))}
+            </Collapse.Panel>
+          ))}
+        </Collapse>
+      )}
     </div>
-  );
+    );
+  };
 
   const Library = () => (
     <div className="p-4 space-y-3">
@@ -277,6 +293,13 @@ const ParentMedia: React.FC = () => {
 
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-gray-600">难度：</span>
+            <Button
+                size="small"
+                color={difficulty === 0 ? 'primary' : 'default'}
+                onClick={() => setDifficulty(0)}
+            >
+                全部
+            </Button>
             {[1, 2, 3, 4].map((level) => (
               <Button
                 key={level}

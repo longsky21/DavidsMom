@@ -1,18 +1,39 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Play, Video, Headphones, Star } from 'lucide-react';
 import ChildLayout from '@/components/child/ChildLayout';
 import { motion } from 'framer-motion';
 import useStore from '@/store/useStore';
 import type { UserState } from '@/store/useStore';
+import axios from 'axios';
 
 const ChildHome: React.FC = () => {
   const navigate = useNavigate();
-  const user = useStore((state: UserState) => state.user);
+  const token = useStore((state: UserState) => state.token);
+  const childNickname = useStore((state: UserState) => state.childNickname);
+  const setChildNickname = useStore((state: UserState) => state.setChildNickname);
+
+  useEffect(() => {
+    if (!token || childNickname) return;
+    const fetchChildName = async () => {
+      try {
+        const response = await axios.get('/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const nickname = response.data?.child?.nickname;
+        if (nickname) {
+          setChildNickname(nickname);
+        }
+      } catch {
+        setChildNickname(null);
+      }
+    };
+    fetchChildName();
+  }, [token, childNickname, setChildNickname]);
 
   const menuItems = [
     {
-      title: 'Words',
+      title: 'Flash Card',
       icon: <Play size={32} className="text-white" fill="currentColor" />,
       path: '/child/flashcard',
       color: 'bg-orange-400',
@@ -20,7 +41,7 @@ const ChildHome: React.FC = () => {
       delay: 0.1
     },
     {
-      title: 'Video',
+      title: 'Fun Video',
       icon: <Video size={32} className="text-white" />,
       path: '/child/videos',
       color: 'bg-green-400',
@@ -28,7 +49,7 @@ const ChildHome: React.FC = () => {
       delay: 0.2
     },
     {
-      title: 'Audio',
+      title: 'Listening Practice',
       icon: <Headphones size={32} className="text-white" />,
       path: '/child/listening',
       color: 'bg-blue-400',
@@ -67,7 +88,7 @@ const ChildHome: React.FC = () => {
             animate={{ y: 0, opacity: 1 }}
             className="text-3xl font-black text-gray-800 mb-2 tracking-tight"
         >
-            Hello, {user?.username || 'Baby'}!
+            Hello, {childNickname || 'Baby'}!
         </motion.h1>
         <p className="text-gray-500 mb-10 font-medium">Ready to play?</p>
 

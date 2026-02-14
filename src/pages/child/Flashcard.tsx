@@ -19,6 +19,8 @@ interface Word {
     example: string;
 }
 
+const normalizeMeaning = (value: string) => value.replace(/<br\s*\/?>/gi, "\n");
+
 const Flashcard: React.FC = () => {
   const navigate = useNavigate();
   const [words, setWords] = useState<Word[]>([]);
@@ -208,8 +210,8 @@ const Flashcard: React.FC = () => {
                       </motion.button>
                     </div>
 
-                    <p className="text-2xl font-black text-orange-500 text-center mb-3 break-words">
-                      {currentWord.meaning}
+                    <p className="text-2xl font-black text-orange-500 text-center mb-3 break-words whitespace-pre-line">
+                      {normalizeMeaning(currentWord.meaning)}
                     </p>
                     <p className="text-gray-500 italic text-center text-base break-words">
                       "{currentWord.example}"

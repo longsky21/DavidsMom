@@ -36,4 +36,5 @@ venv
 # Vercel
 .vercel
 uploads/*
+public/static/images/*
 package-lock.json

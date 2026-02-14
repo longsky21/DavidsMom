@@ -89,7 +89,7 @@ def list_media_resources(
         )
 
     items = (
-        query.order_by(models.MediaResource.created_at.asc(), models.MediaResource.id.asc())
+        query.order_by(models.MediaResource.directory.asc(), models.MediaResource.filename.asc())
         .offset(offset)
         .limit(min(limit, 200))
         .all()

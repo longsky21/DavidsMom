@@ -3,10 +3,72 @@ import os
 import uuid
 import hashlib
 import random
+import re
 from dotenv import load_dotenv
+from pathlib import Path
+from PIL import Image
+from io import BytesIO
 
 # Load environment variables
 load_dotenv()
+
+# Define static root (assuming this file is in api/services/)
+# Base project root is two levels up from api/services
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+STATIC_ROOT = PROJECT_ROOT / "public" / "static"
+IMAGES_ROOT = STATIC_ROOT / "images" / "words"
+
+def download_and_process_image(url: str, word: str) -> str:
+    """
+    Download image from URL, resize to 300x300, save as JPG in local static directory.
+    Returns the relative URL path (e.g. /static/images/words/a/apple.jpg).
+    """
+    if not url:
+        return ""
+        
+    try:
+        # 1. Prepare directory
+        clean_word = word.strip().lower()
+        if not clean_word:
+            return ""
+            
+        first_letter = clean_word[0]
+        if not first_letter.isalpha():
+            first_letter = "other"
+            
+        save_dir = IMAGES_ROOT / first_letter
+        save_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 2. Download image
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            print(f"Failed to download image: {response.status_code}")
+            return ""
+            
+        # 3. Process image with Pillow
+        img = Image.open(BytesIO(response.content))
+        
+        # Convert to RGB (in case of PNG/RGBA)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+            
+        # Resize to 300x300 (using LANCZOS for high quality downsampling)
+        img = img.resize((300, 300), Image.Resampling.LANCZOS)
+        
+        # 4. Save file
+        filename = f"{clean_word}.jpg"
+        file_path = save_dir / filename
+        
+        # Save with quality optimization
+        img.save(file_path, "JPEG", quality=85)
+        
+        # 5. Return URL path
+        # URL should match the mount path in main.py: app.mount("/static", ...)
+        return f"/static/images/words/{first_letter}/{filename}"
+        
+    except Exception as e:
+        print(f"Error processing image for {word}: {e}")
+        return ""
 
 def get_audio_url(word: str, type_id: int = 2) -> str:
     """
@@ -14,6 +76,69 @@ def get_audio_url(word: str, type_id: int = 2) -> str:
     type_id: 1 for UK, 2 for US
     """
     return f"http://dict.youdao.com/dictvoice?audio={word}&type={type_id}"
+
+def format_meaning_text(text: str) -> str:
+    raw = (text or "").strip()
+    if not raw:
+        return ""
+
+    pos_patterns = [
+        "adj.comb",
+        "adj",
+        "adv",
+        "prep",
+        "pron",
+        "conj",
+        "int",
+        "num",
+        "art",
+        "aux",
+        "modal",
+        "comb",
+        "vt",
+        "vi",
+        "v",
+        "n"
+    ]
+    escaped_patterns = [re.escape(p) for p in pos_patterns]
+    pos_regex = re.compile(rf"(?im)(?:(?<=^)|(?<=[\s;；]))((?:{'|'.join(escaped_patterns)}))\.?")
+    split_parts = pos_regex.split(raw)
+
+    def truncate_content(value: str, limit: int = 20) -> str:
+        content = value.strip()
+        if len(content) <= limit:
+            return content.rstrip(" ,，。；;、.:：!?！？")
+        boundary_chars = set(" ,，。；;、.:：!?！？\t\n")
+        cut_index = None
+        for idx in range(limit, len(content)):
+            if content[idx] in boundary_chars:
+                cut_index = idx
+                break
+        if cut_index is None:
+            truncated = content[:limit]
+        else:
+            truncated = content[:cut_index]
+        return truncated.rstrip(" ,，。；;、.:：!?！？")
+
+    if len(split_parts) < 3:
+        return truncate_content(raw)
+
+    parts = []
+    for idx in range(1, len(split_parts), 2):
+        pos_token = split_parts[idx]
+        content = split_parts[idx + 1] if idx + 1 < len(split_parts) else ""
+        if not content:
+            continue
+        content = content.strip()
+        content = content.lstrip(" ;；")
+        content = truncate_content(content)
+        if not content:
+            continue
+        parts.append(f"{pos_token.lower()}. {content}".strip())
+
+    if not parts:
+        return truncate_content(raw)
+    return "\n".join(parts)
 
 def fetch_youdao_info(word: str) -> dict:
     """
@@ -114,11 +239,21 @@ async def fetch_word_info(word: str):
     # 1. Fetch all text info from Youdao
     info = fetch_youdao_info(word)
     
+    if info and info.get("meaning"):
+        info["meaning"] = format_meaning_text(info["meaning"])
+
     # 2. Image Generation (Fallback to DashScope if Youdao has no image)
     if not info.get("image_url"):
+        print(f"No image found for {word}, generating with DashScope...")
         img_url = get_dashscope_image(word)
         if img_url:
-            info["image_url"] = img_url
+            # Download and save locally
+            local_url = download_and_process_image(img_url, word)
+            if local_url:
+                info["image_url"] = local_url
+            else:
+                # Fallback to remote URL if download fails (though likely won't last long)
+                info["image_url"] = img_url
     
     return info
 
