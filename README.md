@@ -1,57 +1,23 @@
-# React + TypeScript + Vite
+David’s Mom：一款让家长少操心、孩子更愿意学的英语 App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+你是不是也经历过：
 
-Currently, two official plugins are available:
+资源收藏夹越来越满，孩子学英语的热情越来越少；
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+计划表越做越精致，执行起来越像“亲子拉锯战”。
 
-## Expanding the ESLint configuration
+David’s Mom 的想法很简单：别再靠吼、靠盯、靠硬撑了。用一个工具，把“学英语”变成一件更顺手、更容易坚持的小事。
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+它怎么帮你？就四步，一个闭环
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+- 家长先规划 ：挑好内容、设好节奏。（家长根据孩子近况准备单词、准备孩子愿意听、愿意看的音视频）
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- 孩子随时学 ：打开就能学，碎片时间也能刷一刷。（Flash Card、Fun Video、Listening Practice 等小工具随时可用）
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- 学完有反馈 ：今天学了多少、哪儿卡住了，一眼能看懂。（学习报告功能）
 
-export default tseslint.config({
-  extends: [
-    // other configs...
-    // Enable lint rules for React
-    reactX.configs['recommended-typescript'],
-    // Enable lint rules for React DOM
-    reactDom.configs.recommended,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+- 社群有人带 ：不再孤军奋战，跟同路人互相抄作业，共享学习资料，为我所用。（迪爸复制营的年费不是白交的）
+
+最后一句，送给每个一边带娃一边也在升级打怪的你：
+
+Let’s grow up together with our children!

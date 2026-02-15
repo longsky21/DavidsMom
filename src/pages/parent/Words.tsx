@@ -31,6 +31,9 @@ interface WordPreview {
   image_url?: string;
 }
 
+const normalizeMeaning = (value?: string) => (value || "").replace(/<br\s*\/?>/gi, "\n");
+const compactMeaning = (value?: string) => normalizeMeaning(value).replace(/\n+/g, " ");
+
 const ImageWithPlaceholder = ({ src, alt, className }: { src: string, alt: string, className?: string }) => {
     const [loaded, setLoaded] = useState(false);
     return (
@@ -166,8 +169,19 @@ const WordManagement: React.FC = () => {
       setPage(0);
       setHasMore(true);
       // loadMore will be triggered by InfiniteScroll when hasMore becomes true and list is empty/short
-    } catch {
-      Toast.show({ icon: 'fail', content: 'Failed to add word' });
+    } catch (error) {
+      let errorMessage = 'Failed to add word';
+      if (axios.isAxiosError(error)) {
+        const detail = error.response?.data?.detail;
+        if (typeof detail === 'string') {
+          if (detail.includes('already exists')) {
+            errorMessage = '不要重复添加';
+          } else {
+            errorMessage = detail;
+          }
+        }
+      }
+      Toast.show({ icon: 'fail', content: errorMessage });
     }
   };
 
@@ -258,7 +272,7 @@ const WordManagement: React.FC = () => {
                         )}
                     </div>
                     <p className="text-gray-600 text-sm line-clamp-1 overflow-hidden text-ellipsis leading-tight flex-1">
-                        {word.meaning}
+                        {compactMeaning(word.meaning)}
                     </p>
                 </div>
               </div>
@@ -429,7 +443,7 @@ const WordManagement: React.FC = () => {
 
                 <div className="w-full text-left bg-blue-50 p-4 rounded-xl mb-4">
                     <div className="text-xs text-blue-400 font-bold uppercase mb-1">Meaning</div>
-                    <div className="text-xl text-gray-800 font-medium">{selectedWord.meaning}</div>
+                    <div className="text-xl text-gray-800 font-medium whitespace-pre-line">{normalizeMeaning(selectedWord.meaning)}</div>
                 </div>
 
                 {selectedWord.example && (

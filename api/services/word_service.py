@@ -3,6 +3,7 @@ import os
 import uuid
 import hashlib
 import random
+import re
 from dotenv import load_dotenv
 from pathlib import Path
 from sqlalchemy import text
@@ -21,6 +22,69 @@ def get_audio_url(word: str, type_id: int = 2) -> str:
     type_id: 1 for UK, 2 for US
     """
     return f"http://dict.youdao.com/dictvoice?audio={word}&type={type_id}"
+
+def format_meaning_text(text: str) -> str:
+    raw = (text or "").strip()
+    if not raw:
+        return ""
+
+    pos_patterns = [
+        "adj.comb",
+        "adj",
+        "adv",
+        "prep",
+        "pron",
+        "conj",
+        "int",
+        "num",
+        "art",
+        "aux",
+        "modal",
+        "comb",
+        "vt",
+        "vi",
+        "v",
+        "n"
+    ]
+    escaped_patterns = [re.escape(p) for p in pos_patterns]
+    pos_regex = re.compile(rf"(?im)(?:(?<=^)|(?<=[\s;；]))((?:{'|'.join(escaped_patterns)}))\.?")
+    split_parts = pos_regex.split(raw)
+
+    def truncate_content(value: str, limit: int = 20) -> str:
+        content = value.strip()
+        if len(content) <= limit:
+            return content.rstrip(" ,，。；;、.:：!?！？")
+        boundary_chars = set(" ,，。；;、.:：!?！？\t\n")
+        cut_index = None
+        for idx in range(limit, len(content)):
+            if content[idx] in boundary_chars:
+                cut_index = idx
+                break
+        if cut_index is None:
+            truncated = content[:limit]
+        else:
+            truncated = content[:cut_index]
+        return truncated.rstrip(" ,，。；;、.:：!?！？")
+
+    if len(split_parts) < 3:
+        return truncate_content(raw)
+
+    parts = []
+    for idx in range(1, len(split_parts), 2):
+        pos_token = split_parts[idx]
+        content = split_parts[idx + 1] if idx + 1 < len(split_parts) else ""
+        if not content:
+            continue
+        content = content.strip()
+        content = content.lstrip(" ;；")
+        content = truncate_content(content)
+        if not content:
+            continue
+        parts.append(f"{pos_token.lower()}. {content}".strip())
+
+    if not parts:
+        return truncate_content(raw)
+    return "\n".join(parts)
 
 def fetch_youdao_info(word: str) -> dict:
     """
@@ -125,7 +189,13 @@ async def fetch_word_info(word: str):
     if not info.get("image_url"):
         img_url = get_siliconflow_image(word)
         if img_url:
-            info["image_url"] = img_url
+            # Download and save locally
+            local_url = download_and_process_image(img_url, word)
+            if local_url:
+                info["image_url"] = local_url
+            else:
+                # Fallback to remote URL if download fails (though likely won't last long)
+                info["image_url"] = img_url
     
     return info
 

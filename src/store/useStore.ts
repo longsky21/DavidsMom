@@ -12,9 +12,11 @@ export interface UserState {
   token: string | null;
   childToken: string | null;
   user: User | null;
+  childNickname: string | null;
   setToken: (token: string) => void;
   setChildToken: (token: string | null) => void;
   setUser: (user: User | null) => void;
+  setChildNickname: (nickname: string | null) => void;
   logout: () => void;
 }
 
@@ -24,10 +26,12 @@ const useStore = create<UserState>()(
       token: null,
       childToken: null,
       user: null,
+      childNickname: null,
       setToken: (token) => set({ token }),
       setChildToken: (childToken) => set({ childToken }),
       setUser: (user) => set({ user }),
-      logout: () => set({ token: null, childToken: null, user: null }),
+      setChildNickname: (childNickname) => set({ childNickname }),
+      logout: () => set({ token: null, childToken: null, user: null, childNickname: null }),
     }),
     {
       name: 'davids-mom-storage',
