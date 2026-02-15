@@ -6,6 +6,8 @@ python-multipart
 python-jose[cryptography]
 passlib
 bcrypt==4.0.1
-requests
+requests==2.32.3
 redis
 python-dotenv
+pillow==10.4.0
+pytest==8.3.3

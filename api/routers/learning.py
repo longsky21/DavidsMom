@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import func
+from sqlalchemy import text, bindparam
 from typing import List, Optional
 from .. import models, schemas, security, deps
-from ..database import get_db
+from ..database import get_db, get_dictionary_db
+from ..services import word_service
 
 router = APIRouter(
     prefix="/api/learning",
@@ -15,7 +17,8 @@ def get_today_task(
     child_id: Optional[str] = None,
     limit: Optional[int] = None,
     current_user: models.Parent = Depends(deps.get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    dict_db: Session = Depends(get_dictionary_db),
 ):
     # Determine which child is learning
     target_child_id = child_id
@@ -40,26 +43,76 @@ def get_today_task(
 
     # Fetch words belonging to this parent
     # In real app, we would use spaced repetition algorithm based on target_child_id
-    words = db.query(models.Word).join(models.Dictionary).filter(models.Word.parent_id == current_user.id).order_by(func.random()).limit(effective_limit).all()
+    words = (
+        db.query(models.Word)
+        .filter(
+            models.Word.parent_id == current_user.id,
+            models.Word.dict_vc_id.isnot(None),
+            models.Word.dict_vc_id != "",
+        )
+        .order_by(func.random())
+        .limit(effective_limit)
+        .all()
+    )
+
+    vc_ids = [w.dict_vc_id for w in words if w.dict_vc_id]
+    dict_map = {}
+    if vc_ids:
+        stmt = (
+            text(
+                """
+                SELECT
+                    w.vc_id,
+                    w.vc_vocabulary,
+                    w.vc_phonetic_us,
+                    w.vc_phonetic_uk,
+                    COALESCE(NULLIF(t.translation, ''), e.youdao_translation) AS translation,
+                    e.image_url,
+                    e.audio_us_url,
+                    e.audio_uk_url,
+                    e.example
+                FROM word w
+                LEFT JOIN word_translation t ON t.vc_id = w.vc_id
+                LEFT JOIN word_ext e ON e.vc_id = w.vc_id
+                WHERE w.vc_id IN :vc_ids
+                """
+            )
+            .bindparams(bindparam("vc_ids", expanding=True))
+        )
+        rows = dict_db.execute(stmt, {"vc_ids": vc_ids}).mappings().all()
+        dict_map = {r["vc_id"]: dict(r) for r in rows}
     
     # Flatten response for words
     flattened_words = []
     for w in words:
-        flattened_words.append({
-            "id": w.id,
-            "parent_id": w.parent_id,
-            "word": w.dictionary.word,
-            "meaning": w.dictionary.meaning,
-            "phonetic_us": w.dictionary.phonetic_us,
-            "phonetic_uk": w.dictionary.phonetic_uk,
-            "example": w.dictionary.example,
-            "image_url": w.dictionary.image_url,
-            "audio_us_url": w.dictionary.audio_us_url,
-            "audio_uk_url": w.dictionary.audio_uk_url,
-            "category": w.category,
-            "difficulty": w.difficulty,
-            "created_at": w.created_at
-        })
+        payload = None
+        if w.dict_vc_id:
+            payload = dict_map.get(w.dict_vc_id)
+            if payload and (not payload.get("image_url") or not payload.get("audio_us_url") or not payload.get("example") or not payload.get("translation")):
+                ext = word_service.ensure_word_ext(dict_db=dict_db, vc_id=w.dict_vc_id, word=payload.get("vc_vocabulary") or "")
+                payload.update(ext)
+                if not payload.get("translation"):
+                    payload["translation"] = ext.get("youdao_translation") or ""
+
+        if payload:
+            flattened_words.append(
+                {
+                    "id": w.id,
+                    "parent_id": w.parent_id,
+                    "word": payload.get("vc_vocabulary") or "",
+                    "meaning": payload.get("translation") or "",
+                    "phonetic_us": payload.get("vc_phonetic_us") or None,
+                    "phonetic_uk": payload.get("vc_phonetic_uk") or None,
+                    "example": payload.get("example") or None,
+                    "image_url": payload.get("image_url") or None,
+                    "audio_us_url": payload.get("audio_us_url") or None,
+                    "audio_uk_url": payload.get("audio_uk_url") or None,
+                    "category": w.category,
+                    "difficulty": w.difficulty,
+                    "created_at": w.created_at,
+                }
+            )
+            continue
 
     return {
         "total_words": effective_limit,

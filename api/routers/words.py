@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import text, bindparam
 from typing import List, Optional
 from .. import models, schemas, security, deps
-from ..database import get_db
+from ..database import get_db, get_dictionary_db
 from ..services import word_service
 
 router = APIRouter(
@@ -13,27 +14,52 @@ router = APIRouter(
 @router.get("/suggest")
 def suggest_words(
     q: str,
-    db: Session = Depends(get_db)
+    dict_db: Session = Depends(get_dictionary_db)
 ):
     if len(q) < 3:
         return []
-        
-    # 1. Local search
-    local_suggestions = db.query(models.Dictionary.word)\
-        .filter(models.Dictionary.word.like(f"{q}%"))\
-        .limit(5)\
-        .all()
-    
-    suggestions = [w.word for w in local_suggestions]
-    
-    # 2. External search (Youdao) if local results are few
-    if len(suggestions) < 5:
-        external_suggestions = word_service.get_word_suggestions(q)
-        for s in external_suggestions:
-            if s not in suggestions:
-                suggestions.append(s)
-                
-    return suggestions[:5]
+
+    rows = dict_db.execute(
+        text(
+            """
+            SELECT vc_vocabulary
+            FROM word
+            WHERE vc_vocabulary LIKE :prefix
+            ORDER BY vc_vocabulary
+            LIMIT 5
+            """
+        ),
+        {"prefix": f"{q}%"},
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
+def _fetch_dictionary_entries(dict_db: Session, vc_ids: List[str]) -> dict:
+    if not vc_ids:
+        return {}
+    stmt = (
+        text(
+            """
+            SELECT
+                w.vc_id,
+                w.vc_vocabulary,
+                w.vc_phonetic_us,
+                w.vc_phonetic_uk,
+                COALESCE(NULLIF(t.translation, ''), e.youdao_translation) AS translation,
+                e.image_url,
+                e.audio_us_url,
+                e.audio_uk_url,
+                e.example
+            FROM word w
+            LEFT JOIN word_translation t ON t.vc_id = w.vc_id
+            LEFT JOIN word_ext e ON e.vc_id = w.vc_id
+            WHERE w.vc_id IN :vc_ids
+            """
+        )
+        .bindparams(bindparam("vc_ids", expanding=True))
+    )
+    rows = dict_db.execute(stmt, {"vc_ids": vc_ids}).mappings().all()
+    return {r["vc_id"]: dict(r) for r in rows}
 
 @router.get("/", response_model=List[schemas.WordResponse])
 def get_words(
@@ -41,112 +67,121 @@ def get_words(
     limit: int = 100, 
     category: Optional[str] = None,
     current_user: models.Parent = Depends(deps.get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    dict_db: Session = Depends(get_dictionary_db),
 ):
-    query = db.query(models.Word).join(models.Dictionary).filter(models.Word.parent_id == current_user.id)
+    query = db.query(models.Word).filter(
+        models.Word.parent_id == current_user.id,
+        models.Word.dict_vc_id.isnot(None),
+        models.Word.dict_vc_id != "",
+    )
     if category:
         query = query.filter(models.Word.category == category)
     
     # Sort by created_at desc (newest first)
     words = query.order_by(models.Word.created_at.desc()).offset(skip).limit(limit).all()
-    
-    # Flatten response
+
+    vc_ids = [w.dict_vc_id for w in words if w.dict_vc_id]
+    dict_map = _fetch_dictionary_entries(dict_db, vc_ids)
+
     result = []
     for w in words:
-        result.append({
-            "id": w.id,
-            "parent_id": w.parent_id,
-            "word": w.dictionary.word,
-            "meaning": w.dictionary.meaning,
-            "phonetic_us": w.dictionary.phonetic_us,
-            "phonetic_uk": w.dictionary.phonetic_uk,
-            "example": w.dictionary.example,
-            "image_url": w.dictionary.image_url,
-            "audio_us_url": w.dictionary.audio_us_url,
-            "audio_uk_url": w.dictionary.audio_uk_url,
-            "category": w.category,
-            "difficulty": w.difficulty,
-            "created_at": w.created_at
-        })
+        payload = None
+        if w.dict_vc_id:
+            payload = dict_map.get(w.dict_vc_id)
+            if payload and (not payload.get("image_url") or not payload.get("audio_us_url") or not payload.get("example") or not payload.get("translation")):
+                ext = word_service.ensure_word_ext(dict_db=dict_db, vc_id=w.dict_vc_id, word=payload.get("vc_vocabulary") or "")
+                payload.update(ext)
+                if not payload.get("translation"):
+                    payload["translation"] = ext.get("youdao_translation") or ""
+
+        if payload:
+            result.append(
+                {
+                    "id": w.id,
+                    "parent_id": w.parent_id,
+                    "word": payload.get("vc_vocabulary") or "",
+                    "meaning": payload.get("translation") or "",
+                    "phonetic_us": payload.get("vc_phonetic_us") or None,
+                    "phonetic_uk": payload.get("vc_phonetic_uk") or None,
+                    "example": payload.get("example") or None,
+                    "image_url": payload.get("image_url") or None,
+                    "audio_us_url": payload.get("audio_us_url") or None,
+                    "audio_uk_url": payload.get("audio_uk_url") or None,
+                    "category": w.category,
+                    "difficulty": w.difficulty,
+                    "created_at": w.created_at,
+                }
+            )
+            continue
     return result
 
 @router.post("/", response_model=schemas.WordResponse)
 async def create_word(
     word_in: schemas.WordCreate, 
     current_user: models.Parent = Depends(deps.get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    dict_db: Session = Depends(get_dictionary_db),
 ):
-    # 1. Check if word already exists in Dictionary (Case Insensitive Check)
-    # We store the canonical form (e.g. "January"), but when checking existence we might search "january"
-    # Ideally, we should fetch info first to get the canonical form if we don't have it.
-    
-    # Strategy: 
-    # - First, fetch info from Youdao to get the canonical word (e.g. "January")
-    # - Then check if "January" exists in DB.
-    
     normalized_input = word_in.word.strip()
-    
-    # Fetch info first to ensure we have the correct casing and data
-    # Note: word_service.fetch_word_info handles lowercasing internally for the query, 
-    # and returns the correct 'word' (e.g. "January") from the API response.
-    fetched_info = await word_service.fetch_word_info(normalized_input)
-    
-    if not fetched_info:
-         raise HTTPException(status_code=400, detail="Could not fetch word information")
-    
-    canonical_word = fetched_info.get("word") # This should be the correct casing, e.g. "January"
-    
-    # Check if this canonical word exists in DB
-    dictionary_entry = db.query(models.Dictionary).filter(models.Dictionary.word == canonical_word).first()
-    
-    # 2. If not in Dictionary, create entry using fetched info
-    if not dictionary_entry:
-        dictionary_entry = models.Dictionary(
-            word=canonical_word,
-            meaning=fetched_info.get("meaning", ""),
-            phonetic_us=fetched_info.get("phonetic_us", ""),
-            phonetic_uk=fetched_info.get("phonetic_uk", ""),
-            example=fetched_info.get("example", ""),
-            image_url=fetched_info.get("image_url", ""),
-            audio_us_url=fetched_info.get("audio_us_url", ""),
-            audio_uk_url=fetched_info.get("audio_uk_url", "")
-        )
-        db.add(dictionary_entry)
-        db.commit()
-        db.refresh(dictionary_entry)
 
-    # 3. Check if word is already linked to this parent
+    row = dict_db.execute(
+        text(
+            """
+            SELECT
+                w.vc_id,
+                w.vc_vocabulary,
+                w.vc_phonetic_us,
+                w.vc_phonetic_uk,
+                COALESCE(NULLIF(t.translation, ''), e.youdao_translation) AS translation
+            FROM word w
+            LEFT JOIN word_translation t ON t.vc_id = w.vc_id
+            LEFT JOIN word_ext e ON e.vc_id = w.vc_id
+            WHERE w.vc_vocabulary = :vocab
+            LIMIT 1
+            """
+        ),
+        {"vocab": normalized_input},
+    ).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Word not found in base dictionary")
+
+    vc_id = row["vc_id"]
+
     existing_link = db.query(models.Word).filter(
         models.Word.parent_id == current_user.id,
-        models.Word.dictionary_id == dictionary_entry.id
+        models.Word.dict_vc_id == vc_id,
     ).first()
     
     if existing_link:
         raise HTTPException(status_code=400, detail="Word already exists in your library")
 
-    # 4. Create Word link
     db_word = models.Word(
         parent_id=current_user.id,
-        dictionary_id=dictionary_entry.id,
+        dictionary_id=None,
+        dict_vc_id=vc_id,
         category=word_in.category,
         difficulty=word_in.difficulty
     )
     db.add(db_word)
     db.commit()
     db.refresh(db_word)
-    
-    # Return flattened response
+
+    ext = word_service.ensure_word_ext(dict_db=dict_db, vc_id=vc_id, word=row.get("vc_vocabulary") or normalized_input)
+    meaning = row.get("translation") or ext.get("youdao_translation") or ""
+
     return {
         "id": db_word.id,
         "parent_id": db_word.parent_id,
-        "word": dictionary_entry.word,
-        "meaning": dictionary_entry.meaning,
-        "phonetic_us": dictionary_entry.phonetic_us,
-        "phonetic_uk": dictionary_entry.phonetic_uk,
-        "example": dictionary_entry.example,
-        "image_url": dictionary_entry.image_url,
-        "audio_us_url": dictionary_entry.audio_us_url,
-        "audio_uk_url": dictionary_entry.audio_uk_url,
+        "word": row.get("vc_vocabulary") or normalized_input,
+        "meaning": meaning,
+        "phonetic_us": row.get("vc_phonetic_us") or None,
+        "phonetic_uk": row.get("vc_phonetic_uk") or None,
+        "example": ext.get("example"),
+        "image_url": ext.get("image_url"),
+        "audio_us_url": ext.get("audio_us_url"),
+        "audio_uk_url": ext.get("audio_uk_url"),
         "category": db_word.category,
         "difficulty": db_word.difficulty,
         "created_at": db_word.created_at
@@ -155,27 +190,53 @@ async def create_word(
 @router.get("/search")
 async def search_word_info(
     word: str,
-    db: Session = Depends(get_db)
+    dict_db: Session = Depends(get_dictionary_db)
 ):
-    # Helper endpoint to preview word info before adding
-    normalized_word = word.strip().lower()
-    
-    # 1. Check local Dictionary first
-    dictionary_entry = db.query(models.Dictionary).filter(models.Dictionary.word == normalized_word).first()
-    if dictionary_entry:
-        return {
-            "word": dictionary_entry.word,
-            "meaning": dictionary_entry.meaning,
-            "phonetic_us": dictionary_entry.phonetic_us,
-            "phonetic_uk": dictionary_entry.phonetic_uk,
-            "example": dictionary_entry.example,
-            "image_url": dictionary_entry.image_url,
-            "audio_us_url": dictionary_entry.audio_us_url,
-            "audio_uk_url": dictionary_entry.audio_uk_url
-        }
+    normalized_word = word.strip()
 
-    # 2. If not found, fetch from external API
-    return await word_service.fetch_word_info(word)
+    row = dict_db.execute(
+        text(
+            """
+            SELECT
+                w.vc_id,
+                w.vc_vocabulary,
+                w.vc_phonetic_us,
+                w.vc_phonetic_uk,
+                COALESCE(NULLIF(t.translation, ''), e.youdao_translation) AS translation,
+                e.image_url,
+                e.audio_us_url,
+                e.audio_uk_url,
+                e.example
+            FROM word w
+            LEFT JOIN word_translation t ON t.vc_id = w.vc_id
+            LEFT JOIN word_ext e ON e.vc_id = w.vc_id
+            WHERE w.vc_vocabulary = :vocab
+            LIMIT 1
+            """
+        ),
+        {"vocab": normalized_word},
+    ).mappings().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Word not found in base dictionary")
+
+    payload = dict(row)
+    if not payload.get("image_url") or not payload.get("audio_us_url") or not payload.get("example") or not payload.get("translation"):
+        ext = word_service.ensure_word_ext(dict_db=dict_db, vc_id=payload["vc_id"], word=payload.get("vc_vocabulary") or normalized_word)
+        payload.update(ext)
+        if not payload.get("translation"):
+            payload["translation"] = ext.get("youdao_translation") or ""
+
+    return {
+        "word": payload.get("vc_vocabulary") or normalized_word,
+        "meaning": payload.get("translation") or "",
+        "phonetic_us": payload.get("vc_phonetic_us") or None,
+        "phonetic_uk": payload.get("vc_phonetic_uk") or None,
+        "example": payload.get("example") or None,
+        "image_url": payload.get("image_url") or None,
+        "audio_us_url": payload.get("audio_us_url") or None,
+        "audio_uk_url": payload.get("audio_uk_url") or None,
+    }
 
 @router.delete("/{word_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_word(

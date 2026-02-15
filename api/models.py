@@ -68,7 +68,8 @@ class Word(Base):
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     parent_id = Column(String(36), ForeignKey("parents.id"), nullable=False)
-    dictionary_id = Column(String(36), ForeignKey("dictionaries.id"), nullable=False)
+    dictionary_id = Column(String(36), ForeignKey("dictionaries.id"), nullable=True)
+    dict_vc_id = Column(String(32), index=True, nullable=True)
     category = Column(String(50), index=True, nullable=True)
     difficulty = Column(Integer, default=1, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

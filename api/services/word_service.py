@@ -4,9 +4,16 @@ import uuid
 import hashlib
 import random
 from dotenv import load_dotenv
+from pathlib import Path
+from sqlalchemy import text
+from io import BytesIO
 
 # Load environment variables
 load_dotenv()
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+UPLOADS_DIR = PROJECT_ROOT / "uploads" / "dictionarydata" / "images"
+STATIC_WORD_IMAGES_DIR = PROJECT_ROOT / "public" / "static" / "images" / "words"
 
 def get_audio_url(word: str, type_id: int = 2) -> str:
     """
@@ -114,43 +121,179 @@ async def fetch_word_info(word: str):
     # 1. Fetch all text info from Youdao
     info = fetch_youdao_info(word)
     
-    # 2. Image Generation (Fallback to DashScope if Youdao has no image)
+    # 2. Image Generation (Fallback to SiliconFlow if Youdao has no image)
     if not info.get("image_url"):
-        img_url = get_dashscope_image(word)
+        img_url = get_siliconflow_image(word)
         if img_url:
             info["image_url"] = img_url
     
     return info
 
-def get_dashscope_image(word: str) -> str:
-    """
-    Generate image using DashScope (Wanx)
-    """
-    api_key = os.getenv("DASHSCOPE_API_KEY")
-    if not api_key:
-        print("DASHSCOPE_API_KEY not found")
-        return ""
-        
-    import dashscope
-    from dashscope import ImageSynthesis
-    
-    dashscope.api_key = api_key
-    prompt = f"cartoon illustration of {word}, cute, simple, for children learning english"
-    
+
+def ensure_word_ext(
+    *,
+    dict_db,
+    vc_id: str,
+    word: str,
+):
+    expected_db = os.getenv("DICT_DB_NAME") or os.getenv("DICTIONARY_DB_NAME") or "dictionarydata"
     try:
-        # Wanx supports 1024*1024, 720*1280, 1280*720
-        # It does not support 300x300, so we keep 1024x1024 which is the standard square size
-        rsp = ImageSynthesis.call(model=ImageSynthesis.Models.wanx_v1,
-                                  prompt=prompt,
-                                  n=1,
-                                  size='1024*1024')
-        
-        if rsp.status_code == 200:
-            if rsp.output and rsp.output.results:
-                return rsp.output.results[0].url
-        else:
-            print(f"DashScope API error: {rsp.code} - {rsp.message}")
+        actual_db = dict_db.get_bind().url.database
+    except Exception:
+        actual_db = None
+    if actual_db != expected_db:
+        raise RuntimeError(f"ensure_word_ext must use database '{expected_db}', got '{actual_db}'")
+
+    row = dict_db.execute(
+        text(
+            """
+            SELECT image_url, audio_uk_url, audio_us_url, example, youdao_translation
+            FROM word_ext
+            WHERE vc_id = :vc_id
+            """
+        ),
+        {"vc_id": vc_id},
+    ).mappings().first()
+
+    existing = dict(row) if row else {}
+
+    need_audio_us = not existing.get("audio_us_url")
+    need_audio_uk = not existing.get("audio_uk_url")
+    need_example = not existing.get("example")
+    need_image = not existing.get("image_url")
+    need_youdao_translation = not existing.get("youdao_translation")
+
+    if not (need_audio_us or need_audio_uk or need_example or need_image or need_youdao_translation):
+        return {
+            "image_url": existing.get("image_url"),
+            "audio_uk_url": existing.get("audio_uk_url"),
+            "audio_us_url": existing.get("audio_us_url"),
+            "example": existing.get("example"),
+            "youdao_translation": existing.get("youdao_translation"),
+        }
+
+    youdao = fetch_youdao_info(word) or {}
+
+    image_url = existing.get("image_url")
+    if not image_url:
+        image_url = youdao.get("image_url") or ""
+        if not image_url:
+            siliconflow_url = get_siliconflow_image(word)
+            if siliconflow_url:
+                local = _download_and_resize_word_image(word, siliconflow_url)
+                if local:
+                    image_url = local
+
+    audio_us_url = existing.get("audio_us_url") or youdao.get("audio_us_url") or ""
+    audio_uk_url = existing.get("audio_uk_url") or youdao.get("audio_uk_url") or ""
+    example = existing.get("example") or youdao.get("example") or ""
+    youdao_translation = existing.get("youdao_translation") or youdao.get("meaning") or ""
+
+    dict_db.execute(
+        text(
+            """
+            INSERT INTO word_ext (vc_id, image_url, audio_uk_url, audio_us_url, example, youdao_translation)
+            VALUES (:vc_id, :image_url, :audio_uk_url, :audio_us_url, :example, :youdao_translation)
+            ON DUPLICATE KEY UPDATE
+                image_url = VALUES(image_url),
+                audio_uk_url = VALUES(audio_uk_url),
+                audio_us_url = VALUES(audio_us_url),
+                example = VALUES(example),
+                youdao_translation = VALUES(youdao_translation)
+            """
+        ),
+        {
+            "vc_id": vc_id,
+            "image_url": image_url or None,
+            "audio_uk_url": audio_uk_url or None,
+            "audio_us_url": audio_us_url or None,
+            "example": example or None,
+            "youdao_translation": youdao_translation or None,
+        },
+    )
+    dict_db.commit()
+
+    return {
+        "image_url": image_url or None,
+        "audio_uk_url": audio_uk_url or None,
+        "audio_us_url": audio_us_url or None,
+        "example": example or None,
+        "youdao_translation": youdao_translation or None,
+    }
+
+
+def _safe_word_filename(word: str) -> str:
+    w = (word or "").strip()
+    if not w:
+        return ""
+    w = w.replace("/", "_").replace("\\", "_").replace("\x00", "_")
+    w = w.replace("..", ".")
+    return w
+
+
+def _download_and_resize_word_image(word: str, url: str) -> str:
+    try:
+        safe_word = _safe_word_filename(word)
+        if not safe_word:
+            return ""
+        first = safe_word[0].lower()
+        if not ("a" <= first <= "z"):
+            first = "other"
+        target_dir = STATIC_WORD_IMAGES_DIR / first
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        resp = requests.get(url, timeout=20)
+        if resp.status_code >= 400:
+            return ""
+        from PIL import Image
+
+        img = Image.open(BytesIO(resp.content)).convert("RGB")
+        img = img.resize((300, 300))
+        file_path = target_dir / f"{safe_word}.jpg"
+        img.save(file_path, format="JPEG", quality=85, optimize=True)
+        return f"/static/images/words/{first}/{safe_word}.jpg"
+    except Exception:
+        return ""
+
+def get_siliconflow_image(word: str) -> str:
+    api_key = os.getenv("SILICONFLOW_API_KEY")
+    if not api_key:
+        print("SILICONFLOW_API_KEY not found")
+        return ""
+
+    prompt = (
+        "cartoon style, 1:1 square image, single clear subject that directly represents "
+        f"the meaning of the English word '{word}', minimal elements, clean background, "
+        "high visual clarity, easy to recognize, educational for children"
+    )
+
+    try:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+        payload = {
+            "model": "Kwai-Kolors/Kolors",
+            "prompt": prompt,
+            "image_size": "1024x1024",
+            "batch_size": 1,
+            "response_format": "url",
+        }
+        resp = requests.post("https://api.siliconflow.cn/v1/images/generations", headers=headers, json=payload, timeout=30)
+        if resp.status_code != 200:
+            print(f"SiliconFlow API error: {resp.status_code} - {resp.text}")
+            return ""
+        data = resp.json()
+        if isinstance(data, dict):
+            if "images" in data and data["images"]:
+                item = data["images"][0]
+                if isinstance(item, dict) and item.get("url"):
+                    return item["url"]
+            if "data" in data and data["data"]:
+                item = data["data"][0]
+                if isinstance(item, dict) and item.get("url"):
+                    return item["url"]
     except Exception as e:
-        print(f"Error generating image with DashScope: {e}")
+        print(f"Error generating image with SiliconFlow: {e}")
         
     return ""
