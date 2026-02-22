@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 interface ChildAudioPlayerProps {
   src: string;
   title: string;
+  seekTime?: number; // Add seekTime prop
   onPlay?: () => void;
   onPause?: () => void;
   onEnded?: () => void;
@@ -16,6 +17,7 @@ interface ChildAudioPlayerProps {
 const ChildAudioPlayer: React.FC<ChildAudioPlayerProps> = ({
   src,
   title,
+  seekTime,
   onPlay,
   onPause,
   onEnded,
@@ -28,6 +30,22 @@ const ChildAudioPlayer: React.FC<ChildAudioPlayerProps> = ({
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isExpanded, setIsExpanded] = useState(true);
+
+  // Handle seek request
+  useEffect(() => {
+    if (seekTime !== undefined && seekTime !== null && audioRef.current) {
+        // Only seek if difference is significant to avoid loops
+        if (Math.abs(audioRef.current.currentTime - seekTime) > 0.5) {
+            audioRef.current.currentTime = seekTime;
+            setProgress(seekTime);
+            if (audioRef.current.paused) {
+                audioRef.current.play();
+                setIsPlaying(true);
+                if (onPlay) onPlay();
+            }
+        }
+    }
+  }, [seekTime]);
 
   useEffect(() => {
     const audio = audioRef.current;

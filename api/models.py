@@ -126,6 +126,7 @@ class MediaResource(Base):
     size_mb = Column(Float, nullable=True)
     duration_seconds = Column(Integer, nullable=True)
     url = Column(String(1000), nullable=False)
+    srt_file = Column(String(500), nullable=True)
     source_channel = Column(String(100), index=True, nullable=False, default="diegodad.com")
     difficulty_level = Column(Integer, index=True, nullable=False, default=1)
     location_type = Column(String(20), nullable=True)  # remote | local

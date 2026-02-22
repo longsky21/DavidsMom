@@ -16,6 +16,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 UPLOADS_DIR = PROJECT_ROOT / "uploads" / "dictionarydata" / "images"
 STATIC_WORD_IMAGES_DIR = PROJECT_ROOT / "public" / "static" / "images" / "words"
 
+
+class SiliconFlowRateLimitError(Exception):
+    pass
+
 def get_audio_url(word: str, type_id: int = 2) -> str:
     """
     Get audio URL from Youdao Dict.
@@ -217,7 +221,8 @@ def ensure_word_ext(
     row = dict_db.execute(
         text(
             """
-            SELECT image_url, audio_uk_url, audio_us_url, example, youdao_translation
+            SELECT image_url, audio_uk_url, audio_us_url, example, youdao_translation, word_from,
+                word, translation, vc_phonetic_uk, vc_phonetic_us, vc_difficulty
             FROM word_ext
             WHERE vc_id = :vc_id
             """
@@ -240,6 +245,12 @@ def ensure_word_ext(
             "audio_us_url": existing.get("audio_us_url"),
             "example": existing.get("example"),
             "youdao_translation": existing.get("youdao_translation"),
+            "word_from": existing.get("word_from"),
+            "word": existing.get("word"),
+            "translation": existing.get("translation"),
+            "vc_phonetic_uk": existing.get("vc_phonetic_uk"),
+            "vc_phonetic_us": existing.get("vc_phonetic_us"),
+            "vc_difficulty": existing.get("vc_difficulty"),
         }
 
     youdao = fetch_youdao_info(word) or {}
@@ -248,7 +259,7 @@ def ensure_word_ext(
     if not image_url:
         image_url = youdao.get("image_url") or ""
         if not image_url:
-            siliconflow_url = get_siliconflow_image(word)
+            siliconflow_url = get_siliconflow_image(word, youdao.get("meaning") or "")
             if siliconflow_url:
                 local = _download_and_resize_word_image(word, siliconflow_url)
                 if local:
@@ -259,17 +270,32 @@ def ensure_word_ext(
     example = existing.get("example") or youdao.get("example") or ""
     youdao_translation = existing.get("youdao_translation") or youdao.get("meaning") or ""
 
+    word_from = existing.get("word_from")
+    word = existing.get("word")
+    translation = existing.get("translation")
+    vc_phonetic_uk = existing.get("vc_phonetic_uk")
+    vc_phonetic_us = existing.get("vc_phonetic_us")
+    vc_difficulty = existing.get("vc_difficulty")
+
     dict_db.execute(
         text(
             """
-            INSERT INTO word_ext (vc_id, image_url, audio_uk_url, audio_us_url, example, youdao_translation)
-            VALUES (:vc_id, :image_url, :audio_uk_url, :audio_us_url, :example, :youdao_translation)
+            INSERT INTO word_ext (vc_id, image_url, audio_uk_url, audio_us_url, example, youdao_translation, word_from,
+                word, translation, vc_phonetic_uk, vc_phonetic_us, vc_difficulty)
+            VALUES (:vc_id, :image_url, :audio_uk_url, :audio_us_url, :example, :youdao_translation, :word_from,
+                :word, :translation, :vc_phonetic_uk, :vc_phonetic_us, :vc_difficulty)
             ON DUPLICATE KEY UPDATE
                 image_url = VALUES(image_url),
                 audio_uk_url = VALUES(audio_uk_url),
                 audio_us_url = VALUES(audio_us_url),
                 example = VALUES(example),
-                youdao_translation = VALUES(youdao_translation)
+                youdao_translation = VALUES(youdao_translation),
+                word_from = COALESCE(VALUES(word_from), word_from),
+                word = COALESCE(VALUES(word), word),
+                translation = COALESCE(VALUES(translation), translation),
+                vc_phonetic_uk = COALESCE(VALUES(vc_phonetic_uk), vc_phonetic_uk),
+                vc_phonetic_us = COALESCE(VALUES(vc_phonetic_us), vc_phonetic_us),
+                vc_difficulty = COALESCE(VALUES(vc_difficulty), vc_difficulty)
             """
         ),
         {
@@ -279,6 +305,12 @@ def ensure_word_ext(
             "audio_us_url": audio_us_url or None,
             "example": example or None,
             "youdao_translation": youdao_translation or None,
+            "word_from": word_from or None,
+            "word": word or None,
+            "translation": translation or None,
+            "vc_phonetic_uk": vc_phonetic_uk or None,
+            "vc_phonetic_us": vc_phonetic_us or None,
+            "vc_difficulty": vc_difficulty,
         },
     )
     dict_db.commit()
@@ -289,6 +321,12 @@ def ensure_word_ext(
         "audio_us_url": audio_us_url or None,
         "example": example or None,
         "youdao_translation": youdao_translation or None,
+        "word_from": word_from or None,
+        "word": word or None,
+        "translation": translation or None,
+        "vc_phonetic_uk": vc_phonetic_uk or None,
+        "vc_phonetic_us": vc_phonetic_us or None,
+        "vc_difficulty": vc_difficulty,
     }
 
 
@@ -325,15 +363,17 @@ def _download_and_resize_word_image(word: str, url: str) -> str:
     except Exception:
         return ""
 
-def get_siliconflow_image(word: str) -> str:
+def get_siliconflow_image(word: str, meaning: str | None = None, raise_on_rate_limit: bool = False) -> str:
     api_key = os.getenv("SILICONFLOW_API_KEY")
     if not api_key:
         print("SILICONFLOW_API_KEY not found")
         return ""
 
+    meaning_text = (meaning or "").strip()
+    meaning_clause = f" with Chinese meaning '{meaning_text}'" if meaning_text else ""
     prompt = (
         "cartoon style, 1:1 square image, single clear subject that directly represents "
-        f"the meaning of the English word '{word}', minimal elements, clean background, "
+        f"the meaning of the English word '{word}'{meaning_clause}, minimal elements, clean background, "
         "high visual clarity, easy to recognize, educational for children"
     )
 
@@ -351,6 +391,8 @@ def get_siliconflow_image(word: str) -> str:
         }
         resp = requests.post("https://api.siliconflow.cn/v1/images/generations", headers=headers, json=payload, timeout=30)
         if resp.status_code != 200:
+            if resp.status_code == 429 and raise_on_rate_limit:
+                raise SiliconFlowRateLimitError(resp.text)
             print(f"SiliconFlow API error: {resp.status_code} - {resp.text}")
             return ""
         data = resp.json()

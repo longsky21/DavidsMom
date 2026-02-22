@@ -172,6 +172,7 @@ class MediaResourceResponse(BaseModel):
     size_mb: Optional[float] = None
     duration_seconds: Optional[int] = None
     url: str
+    srt_file: Optional[str] = None
     source_channel: str
     difficulty_level: int
     location_type: Optional[str] = None

@@ -7,7 +7,11 @@ from sqlalchemy.sql.expression import func
 
 from .. import deps, models, schemas
 from ..database import get_db
-
+from ..services import transcription
+import shutil
+import tempfile
+import os
+from fastapi import UploadFile, File
 
 router = APIRouter(
     prefix="/api/media",
@@ -53,6 +57,29 @@ def normalize_period(period: str) -> Tuple[datetime, datetime]:
         return start, now
     raise HTTPException(status_code=400, detail="Invalid period. Use week or month.")
 
+
+@router.post("/transcribe", response_model=str)
+async def transcribe_media_file(file: UploadFile = File(...)):
+    # 验证文件类型
+    if not file.content_type.startswith(("audio/", "video/")):
+        raise HTTPException(status_code=400, detail="Invalid file type")
+
+    # 保存上传的文件到临时目录
+    suffix = os.path.splitext(file.filename)[1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+
+    try:
+        # 执行转录
+        srt_content = transcription.transcribe_audio(tmp_path)
+        return srt_content
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        # 清理临时文件
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 @router.get("/resources", response_model=List[schemas.MediaResourceResponse])
 def list_media_resources(

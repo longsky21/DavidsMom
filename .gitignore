@@ -13,6 +13,12 @@ dist-ssr
 *.local
 test_*.py
 
+# player
+player/*
+backend/__pycache__/
+backend/api/__pycache__/
+backend/ui/node_modules
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -37,4 +43,5 @@ venv
 .vercel
 uploads/*
 public/static/images/words/*
+public/subtitles/*
 package-lock.json

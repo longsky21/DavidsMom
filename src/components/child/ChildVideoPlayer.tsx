@@ -9,6 +9,7 @@ interface ChildVideoPlayerProps {
   onPause?: () => void;
   onEnded?: () => void;
   onTimeUpdate?: (currentTime: number) => void;
+  seekTime?: number | null;
 }
 
 const ChildVideoPlayer: React.FC<ChildVideoPlayerProps> = ({
@@ -17,7 +18,8 @@ const ChildVideoPlayer: React.FC<ChildVideoPlayerProps> = ({
   onPlay,
   onPause,
   onEnded,
-  onTimeUpdate
+  onTimeUpdate,
+  seekTime
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,6 +36,17 @@ const ChildVideoPlayer: React.FC<ChildVideoPlayerProps> = ({
 
   // Touch handling
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  useEffect(() => {
+    if (seekTime !== null && seekTime !== undefined && videoRef.current) {
+        // Only seek if difference is significant to avoid jitter
+        if (Math.abs(videoRef.current.currentTime - seekTime) > 0.1) {
+            videoRef.current.currentTime = seekTime;
+            setProgress(seekTime);
+            resetControlsTimeout();
+        }
+    }
+  }, [seekTime]);
 
   useEffect(() => {
     const video = videoRef.current;

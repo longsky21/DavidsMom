@@ -11,7 +11,9 @@ import ParentMedia from '@/pages/parent/Media';
 import ChildHome from '@/pages/child/Home';
 import ChildFlashcard from '@/pages/child/Flashcard';
 import ChildVideos from '@/pages/child/Videos';
+import ChildVideosPlayer from '@/pages/child/VideosPlayer';
 import ChildListening from '@/pages/child/Listening';
+import WebPlayer from '../player/frontend/WebPlayer'; // Update import path to use the new independent WebPlayer
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AxiosInterceptor from '@/components/AxiosInterceptor';
 import './i18n';
@@ -80,12 +82,17 @@ function App() {
               <ChildVideos />
             </ProtectedRoute>
           } />
+          <Route path="/child/videos-player" element={
+            <ProtectedRoute>
+              <ChildVideosPlayer />
+            </ProtectedRoute>
+          } />
           <Route path="/child/listening" element={
             <ProtectedRoute>
               <ChildListening />
             </ProtectedRoute>
           } />
-
+          
           {/* Catch all - Redirect to Home (which is guarded) */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

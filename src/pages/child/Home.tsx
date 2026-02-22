@@ -43,7 +43,7 @@ const ChildHome: React.FC = () => {
     {
       title: 'Fun Video',
       icon: <Video size={32} className="text-white" />,
-      path: '/child/videos',
+      path: '/child/videos-player',
       color: 'bg-green-400',
       shadow: 'shadow-green-200',
       delay: 0.2
